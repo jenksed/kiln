@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'agent-preflight: %s\n' "$1" >&2
+  exit 1
+}
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || fail "not inside a Git repository"
+cd "$root"
+
+branch=${KILN_BRANCH:-$(git branch --show-current)}
+[[ -n "$branch" ]] || fail "detached HEAD is not a valid implementation state"
+
+case "$branch" in
+  main|master|develop)
+    fail "implementation work must not run on $branch"
+    ;;
+esac
+
+case "$branch" in
+  work/*|fix/*|spike/*|docs/*|chore/*|release/*|hotfix/*|agent/bootstrap-project-foundation)
+    ;;
+  *)
+    fail "branch '$branch' does not use an approved branch class"
+    ;;
+esac
+
+required_files=(
+  AGENTS.md
+  docs/PROJECT-INVARIANTS.md
+  docs/AGENT-FRIENDLY-CODEBASE.md
+  docs/ENGINEERING-QUALITY-RULES.md
+)
+
+for path in "${required_files[@]}"; do
+  [[ -f "$path" ]] || fail "required project context is missing: $path"
+done
+
+plan=""
+work_id=""
+
+if [[ "$branch" =~ ^work/(p[0-9]+-w[0-9]{2})-[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+  work_id=$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:lower:]' '[:upper:]')
+  shopt -s nullglob
+  plans=(docs/work/"${work_id}"-*.md)
+  shopt -u nullglob
+
+  [[ ${#plans[@]} -eq 1 ]] || fail "expected one plan for $work_id; found ${#plans[@]}"
+  plan=${plans[0]}
+
+  grep -Fq "**Branch:** \`$branch\`" "$plan" || fail "$plan does not identify branch $branch"
+
+  required_headings=(
+    "Objective"
+    "Observed current state and evidence"
+    "Assumptions and unknowns"
+    "Requirements"
+    "Proposed changes"
+    "Files or components expected to change"
+    "Acceptance criteria"
+    "Verification commands"
+    "Required completion evidence"
+    "Explicit exclusions"
+  )
+
+  for heading in "${required_headings[@]}"; do
+    grep -Fqx "## $heading" "$plan" || fail "$plan is missing heading: $heading"
+  done
+elif [[ "$branch" == work/* ]]; then
+  fail "work branch '$branch' does not match work/p<phase>-w<two-digits>-<purpose>"
+fi
+
+printf 'agent-preflight: pass\n'
+printf 'repository: %s\n' "$root"
+printf 'branch: %s\n' "$branch"
+printf 'commit: %s\n' "$(git rev-parse HEAD)"
+
+if [[ -n "$plan" ]]; then
+  printf 'work package: %s\n' "$work_id"
+  printf 'plan: %s\n' "$plan"
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  printf 'working tree: dirty\n'
+else
+  printf 'working tree: clean\n'
+fi

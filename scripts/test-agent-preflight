@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'test-agent-preflight: %s\n' "$1" >&2
+  exit 1
+}
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || fail "not inside a Git repository"
+cd "$root"
+
+KILN_BRANCH=work/p0-w03-agent-ready-development scripts/agent-preflight >/dev/null
+
+if KILN_BRANCH=work/p0-invalid scripts/agent-preflight >/dev/null 2>&1; then
+  fail "invalid work branch passed preflight"
+fi
+
+if KILN_BRANCH=main scripts/agent-preflight >/dev/null 2>&1; then
+  fail "main passed implementation preflight"
+fi
+
+if KILN_BRANCH=unknown/p0-w03 scripts/agent-preflight >/dev/null 2>&1; then
+  fail "unknown branch class passed preflight"
+fi
+
+printf 'test-agent-preflight: pass\n'

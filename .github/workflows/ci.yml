@@ -50,6 +50,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-otp-28.4-elixir-1.20.2-
 
+      - name: Test agent preflight behavior
+        run: scripts/test-agent-preflight
+
+      - name: Validate project agent assets
+        run: scripts/validate-agent-assets
+
       - name: Install dependencies
         run: mix deps.get
 
@@ -58,6 +64,9 @@ jobs:
 
       - name: Compile without warnings
         run: mix compile --warnings-as-errors
+
+      - name: Check compile-connected cycles
+        run: mix xref graph --format cycles --label compile-connected --fail-above 0
 
       - name: Run tests
         run: mix test

@@ -1,0 +1,7 @@
+# Kiln currently has one repository owner.
+* @jenksed
+
+# Architecture and project invariants require owner review.
+/docs/decisions/ @jenksed
+/docs/PROJECT-INVARIANTS.md @jenksed
+/AGENTS.md @jenksed

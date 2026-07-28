@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'validate-agent-assets: %s\n' "$1" >&2
+  exit 1
+}
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || fail "not inside a Git repository"
+cd "$root"
+
+frontmatter_value() {
+  local file=$1
+  local key=$2
+
+  awk -v key="$key" '
+    NR == 1 && $0 == "---" { in_frontmatter = 1; next }
+    in_frontmatter && $0 == "---" { exit }
+    in_frontmatter && index($0, key ":") == 1 {
+      sub("^[^:]+:[[:space:]]*", "")
+      print
+      exit
+    }
+  ' "$file"
+}
+
+shopt -s nullglob
+skills=(.agents/skills/*/SKILL.md)
+agents=(.pi/agents/*.md)
+prompts=(.pi/prompts/*.md)
+shopt -u nullglob
+
+[[ ${#skills[@]} -gt 0 ]] || fail "no project skills found"
+[[ ${#agents[@]} -gt 0 ]] || fail "no project specialist agents found"
+[[ ${#prompts[@]} -gt 0 ]] || fail "no project prompt templates found"
+
+for file in "${skills[@]}"; do
+  directory=$(basename "$(dirname "$file")")
+  name=$(frontmatter_value "$file" name)
+  description=$(frontmatter_value "$file" description)
+
+  [[ -n "$name" ]] || fail "$file has no skill name"
+  [[ "$name" == "$directory" ]] || fail "$file name '$name' does not match directory '$directory'"
+  [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || fail "$file has an invalid skill name"
+  [[ -n "$description" ]] || fail "$file has no skill description"
+done
+
+for file in "${agents[@]}"; do
+  name=$(frontmatter_value "$file" name)
+  description=$(frontmatter_value "$file" description)
+  tools=$(frontmatter_value "$file" tools)
+  normalized_tools=$(printf '%s' "$tools" | tr -d '[:space:]')
+
+  [[ -n "$name" ]] || fail "$file has no agent name"
+  [[ -n "$description" ]] || fail "$file has no agent description"
+  [[ -n "$tools" ]] || fail "$file has no explicit tool allowlist"
+
+  if [[ ",$normalized_tools," == *",edit,"* || ",$normalized_tools," == *",write,"* ]]; then
+    fail "$file grants a specialist agent write tools"
+  fi
+done
+
+required_prompts=(
+  .pi/prompts/start-work.md
+  .pi/prompts/review-work.md
+  .pi/prompts/close-work.md
+)
+
+for file in "${required_prompts[@]}"; do
+  [[ -f "$file" ]] || fail "required prompt is missing: $file"
+done
+
+grep -Fq "Development agents are not product agents" docs/PROJECT-INVARIANTS.md ||
+  fail "project invariant for development agents is missing"
+
+printf 'validate-agent-assets: pass\n'
+printf 'skills: %s\n' "${#skills[@]}"
+printf 'specialist agents: %s\n' "${#agents[@]}"
+printf 'prompt templates: %s\n' "${#prompts[@]}"

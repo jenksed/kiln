@@ -19,21 +19,22 @@ Each planned work package MUST follow `docs/BRANCHING-AND-WORK-PLANNING.md`.
 ## Phase 0 — Repository foundation
 
 **ID:** P0  
-**Goal:** establish project identity, constraints, documentation, basic Elixir structure, CI, and work governance.
+**Goal:** establish project identity, constraints, documentation, basic Elixir structure, CI, work governance, and coding-agent controls.
 
 ### Work packages
 
 | ID | Purpose | Branch | Status |
 | --- | --- | --- | --- |
 | P0-W01 | Establish the repository foundation. | `agent/bootstrap-project-foundation` | Draft PR; bootstrap exception |
-| P0-W02 | Define branch-linked planning, evidence rules, templates, and prose linting. | `work/p0-w02-work-governance` | In progress |
+| P0-W02 | Define branch-linked planning, evidence rules, templates, and prose linting. | `work/p0-w02-work-governance` | Complete on stacked branch; draft PR |
+| P0-W03 | Add agent-friendly code rules, project invariants, skills, specialist reviewers, and deterministic development checks. | `work/p0-w03-agent-ready-development` | In progress |
 
-**Exit:** a new contributor or coding session can identify the purpose, non-goals, accepted decisions, provisional decisions, next work package, acceptance criteria, and required evidence.
+**Exit:** a new coding session can identify the purpose, non-goals, accepted decisions, project invariants, next work package, mutation boundary, acceptance criteria, and required evidence. The session can run one preflight command and one complete quality command.
 
 ## Phase 1 — Local execution kernel
 
 **ID:** P1  
-**Goal:** prove durable supervised local work before adding an LLM.
+**Goal:** prove durable supervised local work before adding an LLM to the development loop.
 
 ### Required behavior
 
@@ -64,13 +65,15 @@ Each proposed work package requires an accepted plan before implementation.
 
 **Exit:** Kiln can execute, interrupt, restart, reconstruct, and accurately report a manual development action.
 
-## Phase 2 — Single-provider agent loop
+## Phase 2 — Provider and model loop
 
 **ID:** P2
 
-Required:
+### Required behavior
 
-- one OpenAI-compatible provider;
+- one provider-neutral request and streaming event contract;
+- one direct OpenAI-compatible provider adapter;
+- model capability discovery or explicit configuration;
 - streamed neutral provider events;
 - read, search, patch or write, and command tools;
 - one model request at a time;
@@ -79,7 +82,11 @@ Required:
 - cancellation;
 - completion summary.
 
-**Exit:** Kiln completes one small repository change and resumes after restart.
+The first direct provider target is MiniMax because the project owner has an active Token Plan. Kimi and Codex require separate managed-client bridge evaluation because platform sign-in is owned by their official clients.
+
+Provider transport experiments MAY begin before Phase 1 is complete on isolated `spike/` branches. Experimental transport code MUST NOT enter the main session loop or satisfy Phase 2 until Phase 1 exits.
+
+**Exit:** Kiln completes one small repository change through the accepted provider contract and resumes after restart.
 
 ## Phase 3 — Evidence-backed completion
 

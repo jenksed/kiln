@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'check: %s\n' "$1" >&2
+  exit 1
+}
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || fail "not inside a Git repository"
+cd "$root"
+
+command -v vale >/dev/null 2>&1 || fail "Vale is not installed or not available on PATH"
+command -v mix >/dev/null 2>&1 || fail "Mix is not installed or not available on PATH"
+
+run() {
+  printf '\n==> %s\n' "$*"
+  "$@"
+}
+
+run scripts/test-agent-preflight
+run scripts/validate-agent-assets
+run vale .
+run mix format --check-formatted
+run mix compile --warnings-as-errors
+run mix xref graph --format cycles --label compile-connected --fail-above 0
+run mix test
+
+printf '\ncheck: pass\n'
+printf 'commit: %s\n' "$(git rev-parse HEAD)"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  printf 'working tree: dirty\n'
+else
+  printf 'working tree: clean\n'
+fi

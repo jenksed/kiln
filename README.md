@@ -37,7 +37,7 @@ The first milestone is a local execution kernel that can:
 6. observe repository state before and after execution;
 7. restart and reconstruct the session accurately.
 
-LLM integration follows only after those semantics are trustworthy.
+LLM integration follows only after those semantics are trustworthy. Provider transport experiments may run earlier on isolated spike branches. They must not bypass the Phase 1 completion gate.
 
 ## Work planning
 
@@ -46,14 +46,37 @@ Kiln uses short-lived branches and stable work-package identifiers.
 Example:
 
 ```text
-Plan:    docs/work/P1-W03-command-supervision.md
-Branch:  work/p1-w03-command-supervision
-PR:      [P1-W03] Add supervised command execution
-Criteria: P1-W03-AC01
+Plan:     docs/work/P1-W03-command-supervision.md
+Branch:   work/p1-w03-command-supervision
+PR:       [P1-W03] Add supervised command execution
+Criterion: P1-W03-AC01
 Evidence: P1-W03-E01
 ```
 
 See [Branching and work planning](docs/BRANCHING-AND-WORK-PLANNING.md) before planned implementation.
+
+## Agent-ready development
+
+Project-local skills, prompts, and specialist agents support the coding agent that builds Kiln. They are development controls. They are not Kiln runtime features.
+
+The default workflow is:
+
+```bash
+scripts/agent-preflight
+scripts/check
+```
+
+Project-local skills live under `.agents/skills/`:
+
+- `kiln-work-package`
+- `kiln-elixir-otp`
+- `kiln-dependency-review`
+- `kiln-integrity-review`
+- `kiln-evidence-closeout`
+
+Optional Pi specialist agents live under `.pi/agents/`. The OTP and integrity agents are read-only. The verifier may run non-mutating checks but may not edit files.
+
+The main coding agent remains the default writer and owns final implementation decisions.
 
 ## Documentation
 
@@ -62,6 +85,9 @@ See [Branching and work planning](docs/BRANCHING-AND-WORK-PLANNING.md) before pl
 - [Session model](docs/SESSION-MODEL.md)
 - [Security model](docs/SECURITY-MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Project invariants](docs/PROJECT-INVARIANTS.md)
+- [Agent-friendly codebase rules](docs/AGENT-FRIENDLY-CODEBASE.md)
+- [Elixir and OTP engineering guide](docs/ELIXIR-OTP-ENGINEERING.md)
 - [Branching and work planning](docs/BRANCHING-AND-WORK-PLANNING.md)
 - [Engineering quality rules](docs/ENGINEERING-QUALITY-RULES.md)
 - [Architecture decisions](docs/decisions/README.md)
@@ -75,13 +101,11 @@ Kiln targets Elixir 1.20 on Erlang/OTP 28.
 ```bash
 mise install
 mix deps.get
-vale .
-mix format --check-formatted
-mix compile --warnings-as-errors
-mix test
+scripts/agent-preflight
+scripts/check
 ```
 
-The repository intentionally begins with no third-party runtime dependencies. Dependencies should be introduced only when an accepted milestone requires them.
+The repository intentionally begins with no third-party runtime dependencies. Use the project dependency-review skill before adding a library, executable, service, native implemented function (NIF), port program, or development tool.
 
 ## Status
 
