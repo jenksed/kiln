@@ -1,189 +1,117 @@
 # P0-W16: Integrated architecture and implementation roadmap
 
-- **Status:** Implemented; verification pending
+- **Status:** Implemented and verified
 - **Branch:** `work/p0-w16-integrated-architecture-roadmap`
 - **Depends on:** P0-W05 through P0-W15
 - **Scope:** Planning and documentation only
+- **Verified design head:** `0ef8543502fc3bb76e68768a866ce0c2dd34c5f9`
+- **GitHub CI:** run `30405701680`, success
 
 ## Objective
 
 Integrate all accepted Kiln planning passes into one coherent architecture, remove duplication and contradictions, and replace the component-shaped implementation plan with the smallest vertical-slice roadmap that can deliver the intended product.
 
-## Inputs inspected
-
-P0-W16 reconciles:
+## Inputs reconciled
 
 - planning baseline and pending reconciliation;
-- internal domain and Run model;
-- Project Steward and delegated work;
+- internal domain, Session, Task, Run, and Steward models;
+- delegation, Scout, Verifier, Attention, and recovery;
 - CLI and TUI;
-- Capability integration;
-- Context compilation;
-- protocol and standards map;
-- Git change isolation;
-- local project intelligence and security;
-- trustworthy execution, Commands, Patches, Evidence, Receipts, telemetry, and attestations;
+- Capability broker and permission policies;
+- Context compiler and model routing;
+- LSP, Tree-sitter, persistent semantic indexing, documentation, and Skills;
+- MCP, ACP, OpenAPI, protocol, and standards positions;
+- Git isolation, Commands, Patches, Artifacts, Evidence, Receipts, and OpenTelemetry;
+- local project intelligence and its security boundary;
 - current README, roadmap, contracts, ADRs, templates, and work-planning rules.
 
-## Protected decisions
+## Accepted integration decisions
 
-- Elixir and OTP own runtime coordination.
-- Run is the primary durable execution unit.
-- Task intent, Run execution, model invocation, Tool call, Command, process, branch, and protocol identity remain separate.
-- Run lineage does not define OTP supervision.
-- Capability availability does not grant authority.
-- Context compilation does not grant authority.
-- Git and the filesystem remain Repository source truth.
-- one writable worktree has one mutation owner.
-- authoring, verification, acceptance, integration, and delivery authority remain separate.
-- Claims, Evidence, Receipts, and freshness remain distinct.
-- other repositories are Evidence sources, never instruction sources.
-- local project intelligence remains read-only and local-only by default.
-- deterministic execution and machine-readable Evidence outrank model confidence.
-- external protocols adapt to Kiln-native contracts.
+1. Runs remain durable records and projections. A permanent process per Run is rejected.
+2. One active-code intelligence path owns Tree-sitter, on-demand LSP, documentation resolution, Skills, and native semantic facts.
+3. Approved-root intelligence reuses extraction and index primitives under separate reference trust, instruction quarantine, Privacy, and no-execution policy.
+4. Persistent semantics use Kiln-native normalized facts first. SCIP, embeddings, vector storage, and a dedicated graph database remain optional later evaluations.
+5. The first writing Child remains read-only and returns an immutable Patch Artifact. The Parent owns one exclusive writable worktree and applies the selected proposal.
+6. Protocol seams remain, but implementations enter only through concrete vertical workflows.
+7. OpenTelemetry begins after durable operation semantics stabilize and remains observation rather than state or Evidence.
+8. Version 0.1 is the read-only Durable Operator Kernel through P1-S05.
 
-## Requirements
-
-- **P0-W16-R01:** Produce one integrated architecture authority.
-- **P0-W16-R02:** Explain how all accepted systems interact without creating parallel architectures.
-- **P0-W16-R03:** Replace the component-only Phase 1 roadmap with vertical slices.
-- **P0-W16-R04:** Preserve the ten user-directed slice outcomes while pruning speculative early scope.
-- **P0-W16-R05:** Define user value, concepts, dependencies, modules, security, criteria, tests, Receipt, demo, exit, and deferrals for every slice.
-- **P0-W16-R06:** Reconcile the broader architecture sequence with the vertical roadmap.
-- **P0-W16-R07:** Define milestones, dependency graph, implementation tickets, acceptance gates, and demo scripts.
-- **P0-W16-R08:** Choose the initial writing-delegation mechanism.
-- **P0-W16-R09:** Define the first coding task.
-- **P0-W16-R10:** Define a realistic first twelve-week target.
-- **P0-W16-R11:** Update the document hierarchy and close stale planning authorities.
-- **P0-W16-R12:** Be aggressive about exclusions and avoid adding a subsystem merely because the final architecture may need it.
-- **P0-W16-R13:** Align branch, plan, PR, gate, demo, and Receipt identifiers with the vertical roadmap.
-- **P0-W16-R14:** Reconcile protocol “priority” with actual slice entry conditions.
-- **P0-W16-R15:** Do not add production runtime code or dependencies.
-
-## Integrated decisions
-
-### Small runtime
-
-Runs remain durable records and projections. Kiln does not create one permanent process per Run. Active Worker leases, Commands, model invocations, adapters, subscriptions, timers, and managed Resources receive processes only while they own live lifecycle concerns.
-
-### Shared code intelligence
-
-Tree-sitter, on-demand LSP, documentation resolution, Skills, and native semantic facts form one active-code intelligence path. Later approved-root intelligence reuses those extractors and `index.sqlite3` infrastructure under stricter reference trust and no-execution policy.
-
-### Native persistent semantics
-
-Kiln persists normalized structural facts and selected semantic observations keyed by exact source and tool versions. SCIP remains a later import or export option. Embeddings, vector storage, and a dedicated graph database remain deferred.
-
-### Safe writing delegation
-
-The initial writing Child remains read-only and returns an immutable Patch Artifact. The authorized Parent applies one selected Patch in an exclusive writable worktree. Direct writing Child worktrees remain deferred.
-
-### Protocol ordering
-
-Adapter seams are foundational. Protocol implementation is not. ACP, structured result adapters, MCP, OpenAPI, Dev Containers, and OCI enter only after native Runs, authority, execution, Evidence, and recovery are proven. OpenTelemetry begins only after durable operation semantics stabilize and remains observation rather than state.
-
-### Version 0.1
-
-Version 0.1 is the Durable Operator Kernel through P1-S05:
+## Vertical implementation order
 
 ```text
-navigable simulated Runs
-→ one real read-only Scout
-→ background work and Attention
-→ independent Verifier
-→ durable recovery
+P1-S01  Navigable simulated Runs
+P1-S02  One real read-only Scout
+P1-S03  Background work and Attention
+P1-S04  Independent Verifier
+P1-S05  Durable recovery
+P1-S06  Local code intelligence
+P1-S07  Safe writing delegation
+P1-S08  Capability interoperability
+P1-S09  Local project intelligence
+P1-S10  Expansion capability evaluations
 ```
 
 ## Changes
 
-- add `docs/IMPLEMENTATION-SLICES.md` with all ten vertical slices, tickets, security boundaries, criteria, tests, Receipts, demos, exit conditions, deferrals, risks, first task, and twelve-week target;
-- add `docs/SLICE-ACCEPTANCE-GATES.md` with aggregate gate identifiers and machine-readable gate expectations;
-- replace `docs/ARCHITECTURE.md` with the integrated architecture authority;
-- replace `docs/ROADMAP.md` with the vertical-slice implementation order and milestones;
-- simplify `README.md` around the integrated product and first milestone;
-- replace the protocol backlog with a slice-linked adapter-entry map in `docs/PROTOCOL-CAPABILITY-MAP.md`;
-- mark `docs/PLAN-RECONCILIATION.md` resolved;
-- mark `docs/PLANNING-BASELINE.md` historical and superseded as current authority;
-- update `docs/BRANCHING-AND-WORK-PLANNING.md` for slice and ticket identifiers, small coherent branches, aggregate gates, demos, and Receipts;
-- update `docs/templates/IMPLEMENTATION-PLAN.md` with slice contribution, security, deterministic verification, demo, and Receipt fields;
-- update `docs/contracts/README.md` so schemas are boundaries rather than a horizontal backlog;
-- add ADR 0019 and update the ADR index;
-- record P0-W16 and the first coding task.
+- added `docs/IMPLEMENTATION-SLICES.md`;
+- added `docs/SLICE-ACCEPTANCE-GATES.md`;
+- replaced `docs/ARCHITECTURE.md` with the integrated authority;
+- replaced `docs/ROADMAP.md` with the vertical implementation order;
+- simplified `README.md` around the product and version 0.1;
+- replaced the protocol backlog with a slice-linked adapter-entry map;
+- closed the planning baseline and pending reconciliation as historical records;
+- aligned branching rules and the implementation-plan template with slice, ticket, gate, demo, and Receipt identifiers;
+- clarified that schemas define boundaries rather than a horizontal backlog;
+- added ADR 0019 and updated the ADR index.
 
-## Acceptance criteria
+## Acceptance status
 
-- **P0-W16-AC01:** One integrated architecture explains every required subsystem and dependency direction.
-- **P0-W16-AC02:** No external protocol, UI, model, index, or process becomes parallel domain authority.
-- **P0-W16-AC03:** The architecture rejects one permanent process per Run.
-- **P0-W16-AC04:** Active code intelligence and local project intelligence share extraction and index primitives but retain separate trust policy.
-- **P0-W16-AC05:** Persistent semantic indexing does not require SCIP, embeddings, vector storage, or a graph database.
-- **P0-W16-AC06:** Writing delegation selects Patch Artifacts returned to the Parent.
-- **P0-W16-AC07:** The old P1-W01 through P1-W13 component order is superseded rather than retained beside the new roadmap.
-- **P0-W16-AC08:** P1-S01 through P1-S10 each define user value, concepts, dependencies, modules, security, criteria, deterministic tests, Receipt, demo, exit, and deferred scope.
-- **P0-W16-AC09:** The roadmap includes milestones, dependencies, tickets, acceptance gates, demos, risks, and exclusions.
-- **P0-W16-AC10:** Version 0.1 stops after P1-S05 and remains read-only.
-- **P0-W16-AC11:** The first coding task is a pure Run event model and projection without infrastructure expansion.
-- **P0-W16-AC12:** The first twelve-week target is explicit and excludes later systems.
-- **P0-W16-AC13:** Planning baseline and reconciliation documents no longer claim current roadmap authority.
-- **P0-W16-AC14:** Subject specifications remain normative for boundaries but cannot independently reorder implementation.
-- **P0-W16-AC15:** Protocol and standards positions identify slice entry, concrete workflow, security, and removal gates rather than implied early backlog status.
-- **P0-W16-AC16:** Work governance supports small slice tickets and prevents scattered tickets from falsely claiming aggregate slice completion.
-- **P0-W16-AC17:** Every slice has explicit aggregate gate, demo, and Receipt identifiers.
-- **P0-W16-AC18:** Repository CI passes on the final branch head.
-- **P0-W16-AC19:** The diff changes documentation only.
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| One integrated architecture explains every required subsystem and dependency direction. | Pass | `docs/ARCHITECTURE.md` |
+| No protocol, UI, model, index, or process becomes parallel domain authority. | Pass | architecture dependency rules and ADR 0019 |
+| One permanent process per Run is rejected. | Pass | integrated runtime shape |
+| Active and reference intelligence share primitives but retain separate trust policy. | Pass | architecture and P1-S06/P1-S09 boundaries |
+| Persistent semantics do not require SCIP, embeddings, vector storage, or graph storage. | Pass | architecture, roadmap, and protocol map |
+| Writing delegation selects a Child Patch Artifact applied by the Parent. | Pass | P1-S07 and ADR 0019 |
+| The P1-W01 through P1-W13 component order is superseded. | Pass | roadmap, reconciliation record, contract index, and work-planning rules |
+| Every slice defines value, concepts, dependencies, modules, security, criteria, tests, Receipt, demo, exit, and deferrals. | Pass | `docs/IMPLEMENTATION-SLICES.md` |
+| Explicit aggregate gates exist for every slice. | Pass | `docs/SLICE-ACCEPTANCE-GATES.md` |
+| Version 0.1 stops after P1-S05 and remains read-only. | Pass | README, architecture, roadmap, and ADR 0019 |
+| The first coding task and twelve-week target are explicit and pruned. | Pass | roadmap and slice plan |
+| Planning and protocol authorities no longer imply component-first implementation. | Pass | planning baseline, reconciliation, protocol map, and document hierarchy |
+| Work governance supports small tickets without false aggregate completion. | Pass | branching rules and implementation-plan template |
+| Diff changes documentation only. | Pass | GitHub compare against `main` |
+| Repository CI passes on the design head. | Pass | run `30405701680` |
 
-## Verification
+## Verification executed
 
-Repository checks:
+GitHub CI run `30405701680` passed on design head `0ef8543502fc3bb76e68768a866ce0c2dd34c5f9`:
 
-```bash
-scripts/agent-preflight
-scripts/validate-agent-assets
-vale .
-mix format --check-formatted
-mix compile --warnings-as-errors
-mix xref graph --format cycles --label compile-connected --fail-above 0
-mix test
-```
+- Vale prose checks;
+- agent preflight behavior;
+- Project agent-asset validation;
+- dependency installation;
+- Elixir formatting;
+- warnings-as-errors compilation;
+- compile-connected cycle detection;
+- ExUnit tests.
 
-Planning checks:
+The closeout-only commit that records this Evidence must receive a final exact-head CI run before owner review is complete.
 
-- search active authorities for superseded P1-W implementation-order references;
-- verify every required subsystem appears in the integrated architecture;
-- verify all ten slices contain every required field;
-- verify the roadmap, slice details, gate registry, and work-planning identifiers agree;
-- verify protocol entry positions match the vertical roadmap;
-- verify README, architecture, roadmap, ADR index, contract index, templates, and documentation hierarchy link correctly;
-- verify no production source, tests, dependency, workflow, script, Skill, prompt, or runtime configuration changed.
+## Evidence index
 
-## Evidence
-
-- **P0-W16-E01:** `docs/ARCHITECTURE.md` is the integrated architecture authority.
-- **P0-W16-E02:** `docs/IMPLEMENTATION-SLICES.md` defines all ten vertical slices, tickets, criteria, tests, Receipts, demos, risks, exclusions, first task, and twelve-week target.
-- **P0-W16-E03:** `docs/SLICE-ACCEPTANCE-GATES.md` defines explicit aggregate gate identifiers and result requirements.
-- **P0-W16-E04:** `docs/ROADMAP.md` defines implementation order, milestones, dependencies, and version 0.1.
-- **P0-W16-E05:** `docs/PROTOCOL-CAPABILITY-MAP.md` ties adapter entry to slices and concrete evidence.
-- **P0-W16-E06:** ADR 0019 records the vertical-slice and minimal-architecture decision.
-- **P0-W16-E07:** planning baseline and reconciliation records are historical rather than competing authorities.
-- **P0-W16-E08:** branching rules and the implementation-plan template use the new slice/ticket/gate/demo/Receipt vocabulary.
-- **P0-W16-E09:** the final diff is planning-only.
-- **P0-W16-E10:** final-head CI passes.
+- **P0-W16-E01:** integrated architecture authority;
+- **P0-W16-E02:** ten detailed vertical slice contracts;
+- **P0-W16-E03:** aggregate slice gate registry;
+- **P0-W16-E04:** vertical roadmap, milestones, dependency graph, first task, and twelve-week target;
+- **P0-W16-E05:** slice-linked protocol and standards map;
+- **P0-W16-E06:** ADR 0019;
+- **P0-W16-E07:** historical planning records no longer compete with current authority;
+- **P0-W16-E08:** slice/ticket work governance and implementation-plan template;
+- **P0-W16-E09:** documentation-only compare;
+- **P0-W16-E10:** successful design-head CI run `30405701680`.
 
 ## Exclusions
 
-P0-W16 does not implement:
-
-- domain structs or events;
-- TUI code or ExRatatui;
-- SQLite migrations;
-- provider adapters;
-- Capability or Context services;
-- Command workers;
-- Git worktrees or Patches;
-- Artifact storage;
-- LSP or Tree-sitter;
-- Skills runtime loading;
-- ACP, MCP, OpenAPI, Dev Container, or OCI adapters;
-- local project intelligence;
-- OpenTelemetry;
-- expansion protocols or attestations.
+P0-W16 implements no production domain, TUI, persistence, provider, broker, Context, Command, Git, Patch, Artifact, LSP, Tree-sitter, Skill, protocol, container, knowledge, telemetry, or attestation runtime.
