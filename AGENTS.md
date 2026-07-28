@@ -6,6 +6,8 @@ Kiln is a local-first, evidence-driven coding harness built with Elixir and OTP.
 
 Kiln helps one developer move repository work from intent to verified completion with less context loss, unsupported claims, and unsafe execution.
 
+The session is the durable objective boundary. The run graph is the durable execution model. The root run carries Project Steward responsibility by default.
+
 Project-local skills and specialist agents help build Kiln. They are not Kiln runtime components.
 
 ## Required start sequence
@@ -17,8 +19,9 @@ Before planned work:
 3. read `docs/PROJECT-INVARIANTS.md`;
 4. read `docs/AGENT-FRIENDLY-CODEBASE.md`;
 5. read `docs/ENGINEERING-QUALITY-RULES.md`;
-6. read applicable architecture and decision records;
-7. inspect current source, tests, Git state, and dependency direction.
+6. read `docs/RUN-MODEL.md` and `docs/PROJECT-STEWARDSHIP.md` when the work affects sessions, runs, providers, interfaces, execution, evidence, or recovery;
+7. read applicable architecture and decision records;
+8. inspect current source, tests, Git state, and dependency direction.
 
 Use the `kiln-work-package` skill for this sequence.
 
@@ -26,17 +29,18 @@ For Elixir and OTP changes, also load `kiln-elixir-otp` and read `docs/ELIXIR-OT
 
 ## Non-negotiable principles
 
-1. Optimize project throughput, not agent activity.
+1. Optimize project throughput, not agent or run activity.
 2. Keep the core small and inspectable.
 3. Prefer deterministic code over probabilistic bookkeeping.
 4. Treat Git and the filesystem as source truth.
-5. Keep the session journal separate from the transcript.
+5. Keep the event journal separate from transcript projections.
 6. Bind verification evidence to repository state.
 7. Use capability-based permissions.
 8. Keep interfaces behind an explicit domain API.
-9. Do not make multi-agent management a core abstraction.
-10. Do not add scaffolding, marketplaces, cloud services, or browser-IDE features to early milestones.
-11. Preserve each `KILN-INV-*` invariant unless an accepted ADR supersedes it.
+9. Model bounded delegated work as first-class runs when independent inspection, steering, cancellation, evidence, or recovery is required.
+10. Do not make an artificial organization of agents a core abstraction.
+11. Do not add scaffolding, marketplaces, cloud services, or browser integrated development environment features to early milestones.
+12. Preserve each `KILN-INV-*` invariant unless an accepted ADR supersedes it.
 
 ## Language boundaries
 
@@ -58,6 +62,8 @@ Keep the public domain API separate from GenServer callback modules.
 
 Supervision restores runtime structure. Persisted events and repository observations restore durable state.
 
+Logical run lineage is not OTP supervision. Do not derive supervisor-child relationships from `parent_run_id`.
+
 Do not persist process identifiers, references, ports, tasks, or functions.
 
 Do not create atoms from external input.
@@ -65,6 +71,61 @@ Do not create atoms from external input.
 Do not use arbitrary sleeps to synchronize tests.
 
 Inspect shared dependency effects with `mix xref callers`, `mix xref trace`, or the compile-connected cycle check.
+
+## Product run model
+
+A session MUST have one root run.
+
+The root run carries Project Steward responsibility by default.
+
+When delegated work requires independent inspection, steering, cancellation, evidence, or recovery, create a child run. Do not hide that work in an opaque background tool call.
+
+Each run MUST have or reference:
+
+- one bounded task;
+- session, root, and parent identifiers;
+- explicit status;
+- a capability profile;
+- context and transcript projections;
+- artifacts and evidence;
+- resource accounting;
+- cancellation and attention state;
+- a structured result.
+
+Client focus MUST remain local to each client. A focus change MUST NOT change run execution or another client.
+
+Attention routing MUST work independently of run depth.
+
+Do not permit concurrent writing runs in one checkout. Writing children require isolated worktrees or patch artifacts.
+
+Initial child runs SHOULD be read-only.
+
+## Project Steward rules
+
+The Project Steward coordinates delivery. It is not a manager-of-managers persona.
+
+The Steward MUST:
+
+- maintain the accepted objective and completion contract;
+- trace specifications to runs, mutations, verification, evidence, and completion status;
+- select direct execution or bounded delegation based on expected contribution to delivery;
+- route attention;
+- disclose blockers, failures, material uncertainty, and specification gaps;
+- request independent verification for material completion claims;
+- reconcile intent, repository state, and current evidence.
+
+The Steward MUST NOT:
+
+- override user authority;
+- change accepted intent without disclosure and approval;
+- bypass capability policy;
+- alter repository or evidence facts through narrative;
+- treat stale evidence as current;
+- permit concurrent writers in one checkout;
+- report completion when the completion contract is not satisfied;
+- create child runs only to simulate an organization.
+
+Deterministic services remain authoritative for repository state, event ordering, capability decisions, evidence freshness, recovery state, and acceptance status.
 
 ## Work-package discipline
 
@@ -88,7 +149,7 @@ A plan MUST identify each applicable project invariant.
 
 ## Development-agent model
 
-The main coding agent is the default writer.
+The main coding agent is the default writer for building Kiln.
 
 Project-local specialist agents are optional reviewers. They MUST NOT become parallel implementation owners.
 
@@ -105,6 +166,8 @@ The verifier MAY use Bash only for non-mutating inspection and checks.
 The main coding agent remains responsible for evaluating findings and applying accepted corrections.
 
 Do not implement optional reviewer suggestions unless they serve the current work-package objective.
+
+Development-agent assets do not prove the Kiln runtime run model.
 
 ## Change discipline
 
@@ -125,7 +188,8 @@ During implementation:
 - record an ADR for each material architecture decision;
 - do not reverse an accepted ADR without a superseding ADR;
 - do not add speculative extension points or compatibility paths;
-- do not include unrelated cleanup.
+- do not include unrelated cleanup;
+- preserve run and stewardship boundaries when work touches session state or interfaces.
 
 Before completion:
 
@@ -144,7 +208,7 @@ If required verification cannot run, report `implemented but unverified`. Do not
 
 ## Dependency discipline
 
-Use the `kiln-dependency-review` skill before adding a library, executable, service, NIF, port program, or development tool.
+Use the `kiln-dependency-review` skill before adding a library, executable, service, native implemented function (NIF), port program, or development tool.
 
 A dependency proposal MUST identify the requirement, exact version, official interface, maintenance evidence, license, transitive effect, security boundary, alternatives, and removal cost.
 

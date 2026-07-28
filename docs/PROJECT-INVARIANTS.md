@@ -42,11 +42,11 @@ Kiln MUST reconstruct durable development state from persisted events and curren
 
 ### KILN-INV-005: The session journal is not the transcript
 
-Kiln MUST store durable session events separately from the conversational transcript.
+Kiln MUST store durable session and run events separately from conversational transcript projections.
 
-The transcript MAY be a projection of session events and model content.
+A transcript MAY be a projection of events and model content.
 
-**Source:** `docs/decisions/0002-durable-session-journal.md`
+**Source:** `docs/decisions/0002-durable-session-journal.md`, `docs/RUN-MODEL.md`
 
 ### KILN-INV-006: Git and the filesystem remain source truth
 
@@ -62,21 +62,21 @@ Kiln MUST distinguish model claims from observations.
 
 Kiln MUST NOT treat stale evidence as proof of the current repository state.
 
-**Source:** `docs/SESSION-MODEL.md`, `docs/ROADMAP.md`
+**Source:** `docs/SESSION-MODEL.md`, `docs/PROJECT-STEWARDSHIP.md`
 
 ### KILN-INV-008: Permissions use explicit capabilities
 
-Tools and extensions MUST request explicit capabilities.
+Tools, extensions, and runs MUST request explicit capabilities.
 
 BEAM process isolation MUST NOT be represented as operating-system containment.
 
-**Source:** `docs/SECURITY-MODEL.md`
+**Source:** `docs/SECURITY-MODEL.md`, `docs/RUN-MODEL.md`
 
 ### KILN-INV-009: Interfaces do not own session truth
 
 The command-line interface, Phoenix interface, and future clients MUST use an explicit domain API.
 
-An interface MUST NOT become the authoritative owner of durable session state.
+An interface MUST NOT become the authoritative owner of durable session or run state.
 
 **Source:** `docs/ARCHITECTURE.md`
 
@@ -104,17 +104,81 @@ These features MAY exist later as external extensions or products.
 
 ### KILN-INV-013: Deterministic code owns bookkeeping
 
-Kiln MUST use deterministic code for repository fingerprints, event recording, permission enforcement, evidence freshness, invalidation, cancellation, and state reconstruction when deterministic implementation is feasible.
+Kiln MUST use deterministic code for repository fingerprints, event recording, permission enforcement, evidence freshness, invalidation, cancellation, acceptance status, and state reconstruction when deterministic implementation is feasible.
 
 **Source:** `docs/PROJECT-PROVENANCE.md`, `AGENTS.md`
 
-### KILN-INV-014: Development agents are not product agents
+### KILN-INV-014: Development agents are not product runs
 
 Project-local skills, prompts, and specialist agents support the construction and review of Kiln.
 
-They MUST NOT be described as Kiln runtime components or used as precedent for runtime multi-agent orchestration.
+They MUST NOT be described as Kiln runtime components or used as evidence that the Kiln run model is implemented.
 
-**Source:** `docs/work/P0-W03-agent-ready-development.md`
+**Source:** `docs/work/P0-W03-agent-ready-development.md`, `docs/RUN-MODEL.md`
+
+### KILN-INV-015: Delegated work is a first-class run
+
+When delegated work requires independent inspection, steering, cancellation, evidence, or recovery, Kiln MUST create a child run.
+
+Kiln MUST NOT hide such work inside an opaque background tool call.
+
+**Source:** `docs/decisions/0004-first-class-run-graph.md`, `docs/RUN-MODEL.md`
+
+### KILN-INV-016: Run lineage is not OTP supervision
+
+Kiln MUST store logical parent-child run relationships independently from OTP supervisor-child relationships.
+
+A user-interface hierarchy MUST NOT dictate fault-containment structure.
+
+**Source:** `docs/decisions/0004-first-class-run-graph.md`, `docs/ARCHITECTURE.md`
+
+### KILN-INV-017: Run focus is client-local
+
+Each client MUST own its focused run independently from the session and from other clients.
+
+Changing client focus MUST NOT change run execution or another client's view.
+
+**Source:** `docs/RUN-MODEL.md`, `docs/ARCHITECTURE.md`
+
+### KILN-INV-018: Attention routing is depth-independent
+
+A run that requires user input, permission, conflict resolution, or failure handling MUST emit a normalized attention item.
+
+Attention delivery MUST NOT depend on the run's nesting depth.
+
+**Source:** `docs/RUN-MODEL.md`, `docs/SESSION-MODEL.md`
+
+### KILN-INV-019: Concurrent writers require isolation
+
+Kiln MUST NOT allow multiple writing runs to modify one checkout concurrently.
+
+A writing child requires an isolated Git worktree or a patch artifact that a controlling run reviews and applies.
+
+**Source:** `docs/RUN-MODEL.md`, `docs/decisions/0004-first-class-run-graph.md`
+
+### KILN-INV-020: The root run carries Project Steward responsibility
+
+Each session root run MUST carry Project Steward responsibility by default.
+
+The Steward MUST maintain delivery traceability and reconcile the objective, repository state, and current evidence.
+
+**Source:** `docs/decisions/0005-project-steward.md`, `docs/PROJECT-STEWARDSHIP.md`
+
+### KILN-INV-021: The Project Steward is constrained
+
+The Project Steward MUST NOT override user authority, capability policy, repository truth, evidence freshness, acceptance status, or completion gates.
+
+The Steward MUST disclose blocked work, failed verification, material uncertainty, and unresolved specification gaps.
+
+**Source:** `docs/decisions/0005-project-steward.md`, `docs/PROJECT-STEWARDSHIP.md`
+
+### KILN-INV-022: Delegation must serve delivery
+
+The Project Steward SHOULD delegate only when a child run improves evidence, parallelism, specialization, independent review, steering, cancellation, or recovery.
+
+Kiln MUST NOT optimize for the number of active runs.
+
+**Source:** `docs/PROJECT-STEWARDSHIP.md`, `docs/PROJECT-PROVENANCE.md`
 
 ## Review use
 
