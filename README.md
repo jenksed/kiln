@@ -2,7 +2,7 @@
 
 Kiln is a local-first, evidence-driven coding harness built on Elixir and OTP for rapid, lucid AI-assisted software development.
 
-Kiln is not an application scaffolder, an autonomous software company, or an agent-management framework. It is the durable runtime around model-driven repository work: execution, state, context, permissions, runs, interruption, recovery, and verification.
+Kiln is not an application scaffolder, an autonomous software company, an agent-management framework, or a catalog of protocol implementations. It is the durable runtime around model-driven repository work: execution, state, context, permissions, runs, interruption, recovery, and verification.
 
 ## Project thesis
 
@@ -15,67 +15,81 @@ Kiln is designed to move work through:
 Kiln uses these foundational boundaries:
 
 ```text
-Workspace
-└── Session: one repository objective
-    └── Run graph: inspectable units of work
-        └── Root run: Project Steward responsibility
+Workspace: local operating and trust boundary
+└── Project: durable software product or body of work
+    └── Session: one accepted objective and work history
+        ├── Tasks: bounded desired outcomes
+        └── Run graph: durable execution and coordination attempts
+            └── Root Run: Project Steward responsibility
 ```
 
-The session owns the objective. The run graph owns execution lineage. The Project Steward coordinates delivery toward specification-conformant, verified completion.
+The Session owns the objective. Tasks state desired work. Runs are the primary execution units. Agent definitions, Workers, model invocations, Tools, Commands, and external protocols operate within or beneath Runs.
 
-Kiln supports bounded delegated runs without turning the product into an artificial organization of agents.
+Kiln supports bounded Child Runs without turning the product into an artificial organization of agents.
 
 ## Foundational direction
 
 - **Runtime:** Elixir and OTP
-- **Objective boundary:** one durable session
-- **Execution model:** one root run and a navigable run graph
-- **Delivery coordination:** Project Steward responsibility on the root run
+- **Internal model:** Kiln-native and protocol-neutral
+- **External integration:** adapters map protocols and mature tools to Kiln domain commands, events, and schemas
+- **Objective boundary:** one durable Session
+- **Desired-work boundary:** one bounded Task
+- **Execution model:** one Root Run and a navigable Run graph
+- **Primary execution unit:** Run, not Agent persona or model invocation
+- **Delivery coordination:** Project Steward responsibility on the Root Run
 - **Initial interface:** command-line interface
-- **Durable state:** SQLite
+- **Durable state:** SQLite and an append-oriented event journal
 - **Source truth:** Git and the filesystem
+- **Authority:** explicit Capabilities, policy, and scoped grants
+- **Evidence:** Claims remain separate from Evidence and Receipts
 - **Web interface:** Phoenix LiveView, after the runtime is proven
 - **Extensions:** language-neutral supervised subprocess protocol
 - **First external software development kit:** TypeScript, after the protocol is proven
 - **Gleam:** deferred until a concrete pure domain component earns it
 
+No external protocol may become Kiln's internal domain model.
+
 ## Project Steward
 
-The Project Steward uses Kiln's run graph, specifications, repository observations, capability policy, evidence, and completion gates to coordinate work.
+The Project Steward uses Kiln's Run graph, Tasks, specifications, Repository observations, Capability policy, Evidence, and completion gates to coordinate work.
 
 The Steward can:
 
-- decompose work into bounded runs;
+- decompose work into bounded Tasks and Runs;
 - route attention;
 - request independent verification;
-- track requirements, mutations, evidence, risks, and unknowns;
-- reconcile the repository against the accepted specification;
+- track requirements, mutations, Evidence, risks, and unknowns;
+- reconcile Repository state against the accepted specification;
 - recommend continuation, blocking, or completion.
 
-The Steward cannot override user authority, policy, repository truth, evidence freshness, or completion gates.
+The Steward cannot override user authority, policy, Repository truth, Evidence freshness, or completion gates.
 
 ## Current milestone
 
-Phase 0 is defining the repository and runtime foundation before implementation begins.
+Phase 0 is defining the Repository and runtime foundation before implementation begins.
 
 P0-W05 audits the integrated and stacked planning state. Read [Planning baseline](docs/PLANNING-BASELINE.md) before product, architecture, or roadmap work.
 
-The next planning pass must reconcile the current Phase 1 work packages with:
+P0-W06 defines the [Internal domain model](docs/INTERNAL-DOMAIN-MODEL.md), JSON contracts, protocol-adapter boundary, and Run-centered execution semantics before Phase 1 implementation.
 
-- session and run identity;
-- durable run events;
-- fake navigable child runs;
-- client-local focus;
+The later roadmap reconciliation must align Phase 1 with:
+
+- Workspace, Project, Repository, and Environment identity;
+- Session, Task, Run, and event identity;
+- minimum Context, Capability, Claim, Evidence, Receipt, and Checkpoint primitives;
+- fake navigable Child Runs;
+- Client-local focus;
 - attention routing;
 - Project Steward projection;
 - supervised execution;
-- provider-backed root runs;
-- read-only child runs;
+- Repository observation and trust policy;
+- provider-backed Root Runs;
+- read-only Child Runs;
 - independent verification.
 
 See [Plan reconciliation](docs/PLAN-RECONCILIATION.md).
 
-Provider transport experiments may run on isolated spike branches. They must not bypass the accepted execution-kernel and evidence gates.
+Provider and protocol experiments may run on isolated spike branches. They must not bypass the internal domain, execution-kernel, policy, privacy, and Evidence gates.
 
 ## Work planning
 
@@ -95,7 +109,7 @@ See [Branching and work planning](docs/BRANCHING-AND-WORK-PLANNING.md) before pl
 
 ## Agent-ready development
 
-Project-local skills, prompts, and specialist agents support the coding agent that builds Kiln. They are development controls. They are not Kiln runtime runs.
+Project-local Skills, prompts, and specialist agents support the coding agent that builds Kiln. They are development controls. They are not Kiln runtime Runs, Agent definitions, or Workers.
 
 The default workflow is:
 
@@ -119,6 +133,8 @@ The main coding agent remains the default writer and owns final implementation d
 ## Documentation
 
 - [Planning baseline](docs/PLANNING-BASELINE.md)
+- [Internal domain model](docs/INTERNAL-DOMAIN-MODEL.md)
+- [Domain contracts](docs/contracts/README.md)
 - [Project provenance](docs/PROJECT-PROVENANCE.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Session model](docs/SESSION-MODEL.md)

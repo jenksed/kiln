@@ -180,6 +180,102 @@ Kiln MUST NOT optimize for the number of active runs.
 
 **Source:** `docs/PROJECT-STEWARDSHIP.md`, `docs/PROJECT-PROVENANCE.md`
 
+### KILN-INV-023: Kiln owns the internal domain
+
+No external protocol MAY define Kiln's core entities, identifiers, lifecycle, authority, persistence, or Evidence semantics.
+
+External protocols MUST connect through adapters that use Kiln domain commands, queries, events, and schemas.
+
+**Source:** `docs/decisions/0006-protocol-neutral-internal-domain.md`, `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-024: Run is the primary execution unit
+
+Every independently inspectable unit of model-backed or deterministic work MUST be a Run.
+
+An Agent persona, Worker process, model invocation, Tool call, protocol thread, or operating-system process MUST NOT replace Run identity.
+
+**Source:** `docs/decisions/0007-run-primary-execution-unit.md`, `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-025: Task and Run remain separate
+
+A Task MUST state desired work. A Run MUST represent one execution or coordination attempt for that Task.
+
+Every Run MUST reference one Task. Completing a Run MUST NOT automatically satisfy the Task.
+
+**Source:** `docs/decisions/0007-run-primary-execution-unit.md`, `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-026: Agent, Worker, and invocation remain separate
+
+An Agent MUST be a versioned execution definition. A Worker MUST be a transient executor lease. A model invocation MUST be one provider request and response stream.
+
+None of these concepts MAY own the durable work identity that belongs to the Run.
+
+**Source:** `docs/decisions/0007-run-primary-execution-unit.md`, `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-027: Availability is not permission
+
+Kiln MUST distinguish Capability availability, policy allowance, Capability grant, and effective authority.
+
+A Tool, Skill, Agent, adapter, or Environment MUST NOT grant itself authority.
+
+**Source:** `docs/SECURITY-MODEL.md`, `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-028: Child runs inherit no ambient authority
+
+A Child Run MUST receive explicit Capability grants, Resource scope, Context, and limits.
+
+A Parent Run MUST NOT transfer ambient path, network, secret, write, or publication authority.
+
+**Source:** `docs/INTERNAL-DOMAIN-MODEL.md`, ADR 0007
+
+### KILN-INV-029: Claims are not evidence
+
+A model statement, Agent conclusion, user assertion, Tool result summary, or completion narrative MUST be a Claim until Evidence supports or refutes it.
+
+Kiln MUST NOT use confidence as proof.
+
+**Source:** `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-030: Evidence and receipts remain distinct
+
+Evidence MUST be an immutable observation with method, producer, result, state binding, and freshness rule.
+
+A Receipt MUST be an immutable sealed manifest that references Evidence. A Receipt MUST NOT make stale or missing Evidence current.
+
+**Source:** `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-031: Artifact inclusion is explicit
+
+An Artifact MUST NOT enter model Context without a provenance-bearing Context item and immutable Context manifest.
+
+Artifact existence MUST NOT imply instruction authority, Evidence status, or model visibility.
+
+**Source:** `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-032: Active project instructions outrank reference content
+
+Content from a reference-only Repository or Project MUST remain untrusted input.
+
+Reference content MUST NOT change active Project instructions, policy, product direction, or write authority unless the user explicitly accepts and records the change.
+
+**Source:** `docs/INTERNAL-DOMAIN-MODEL.md`
+
+### KILN-INV-033: Privacy policy gates egress
+
+Kiln MUST evaluate Privacy policy before Context, Artifacts, traces, Evidence, or secret-derived values leave their allowed boundary.
+
+Capability to call a provider or adapter MUST NOT authorize all data to leave the local system.
+
+**Source:** `docs/INTERNAL-DOMAIN-MODEL.md`, `docs/SECURITY-MODEL.md`
+
+### KILN-INV-034: Process identity is not domain identity
+
+Kiln MUST NOT persist a PID, port, monitor reference, BEAM Task, function, supervisor path, connection, or external request identifier as core domain identity.
+
+A process MUST exist only when it owns concurrent state, lifecycle, timing, subscriptions, external communication, or fault isolation.
+
+**Source:** ADR 0001, ADR 0007, `docs/INTERNAL-DOMAIN-MODEL.md`
+
 ## Review use
 
 A plan MUST list each invariant that constrains the work.

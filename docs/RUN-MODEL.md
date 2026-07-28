@@ -1,89 +1,198 @@
 # Run Model
 
 **Document type:** Reference  
-**Status:** Foundational direction
+**Status:** Foundational direction  
+**Internal-domain authority:** `docs/INTERNAL-DOMAIN-MODEL.md`
 
-A run is one independently inspectable unit of work inside a Kiln session.
+A Run is one independently inspectable execution or coordination attempt for one Task inside a Kiln Session.
 
-A session owns one repository objective. A run performs or coordinates a bounded part of that objective.
+The Run is Kiln's primary durable execution unit.
+
+## Required properties
+
+A Run must be independently:
+
+- identifiable;
+- inspectable;
+- interruptible;
+- resumable when recovery is valid;
+- measurable;
+- permission-scoped;
+- Context-scoped;
+- Evidence-producing;
+- cancellable.
+
+A Run can be model-backed, deterministic, command-oriented, human-steered, verification-focused, or coordination-focused.
 
 ## Domain hierarchy
 
 ```text
 Workspace
-└── Session
-    └── Root run
-        ├── Child run
-        ├── Child run
-        │   └── Child run
-        └── Child run
+└── Project
+    └── Session
+        ├── Task
+        │   ├── Run
+        │   └── later Run attempt
+        └── Root Task
+            └── Root Run
+                ├── Child Run
+                ├── Child Run
+                │   └── Child Run
+                └── Child Run
 ```
 
-The hierarchy represents work lineage. It does not represent an organization chart.
+This hierarchy represents ownership and work lineage. It does not represent an organization chart or OTP supervision tree.
 
-## Definitions
+## Task and Run
 
-### Workspace
+A Task states one bounded desired outcome or decision.
 
-A workspace identifies the local repository and its operating boundary.
+A Run is one execution or coordination attempt for that Task.
 
-### Session
+Every Run must reference exactly one Task.
 
-A session is one durable attempt to move a repository objective toward verified completion.
+One Task can have several Runs because:
 
-The session owns:
+- an earlier Run failed;
+- Evidence became stale;
+- a different approach is required;
+- independent verification requires a separate Run;
+- concurrent read-only investigation uses several bounded Runs.
 
-- the accepted intent;
-- the completion contract;
-- the run graph;
-- the event sequence;
-- repository observations;
-- session-level policy;
-- final reconciliation.
+A completed Run does not automatically satisfy the Task. Task satisfaction is derived from accepted criteria and current Evidence.
 
-### Run
+## Run identity
 
-A run is one bounded execution context within a session.
+A Run has a Kiln-generated `run_id`.
 
-A run can perform:
+Run identity must not use:
 
-- direct implementation;
-- investigation;
-- documentation research;
-- command execution coordination;
-- verification;
-- review;
-- planning;
-- recovery analysis;
-- Project Steward coordination.
+- Agent name;
+- model name;
+- provider request ID;
+- protocol task, thread, or session ID;
+- Worker identity;
+- BEAM PID or reference;
+- operating-system PID;
+- Tool call ID;
+- Command ID;
+- Terminal ID.
 
-### Root run
+A Run identity survives every Worker, process, model invocation, client, and adapter connection.
 
-Each session has one root run.
+## Run roles
 
-The root run represents the main control context for the session. The root run carries Project Steward responsibility by default.
+### Root Run
 
-### Child run
+Each Session has exactly one Root Run.
 
-A child run is created when a task must become independently inspectable, steerable, cancellable, or accountable.
+The Root Run:
 
-Delegation that does not require those properties can remain an ordinary tool execution or pure function call.
+- references the Session root Task;
+- has no Parent Run;
+- references itself as `root_run_id`;
+- is the main execution and control context;
+- carries Project Steward responsibility by default.
 
-## Required run data
+Root is a Run role and invariant. It does not require a separate entity table, Elixir struct, or process type.
 
-A run must have or reference:
+### Parent Run
+
+A Parent Run is the existing Run referenced by a Child Run's `parent_run_id`.
+
+The Parent Run:
+
+- explains why the Child Run exists;
+- receives the Child Run's structured result;
+- exposes a Child projection;
+- can request interruption or attention routing;
+- does not automatically supervise the Child process;
+- does not transfer ambient authority or Context.
+
+Parent is a relationship role, not a separate entity.
+
+### Child Run
+
+A Child Run is a Run with a non-null `parent_run_id`.
+
+Create a Child Run when delegated work requires independent:
+
+- inspection;
+- steering;
+- interruption or cancellation;
+- Context;
+- Capability scope;
+- measurement;
+- Artifacts and Evidence;
+- recovery.
+
+Delegation that does not need these properties can remain a Tool call, deterministic function, or internal service operation.
+
+A Child Run is not an organizational subordinate or hidden background Agent.
+
+## Agent, Worker, and model invocation
+
+### Agent
+
+An Agent is a versioned execution definition.
+
+An Agent can define:
+
+- instruction Artifacts;
+- model-selection policy;
+- Skill bindings;
+- expected result schema;
+- reasoning and Tool-use strategy.
+
+An Agent is data. It does not own Run state, Capability grants, policy, or completion readiness.
+
+### Worker
+
+A Worker is a transient live executor that holds a bounded lease to advance one Run.
+
+A Worker can be:
+
+- model-backed;
+- deterministic;
+- command-focused;
+- a human bridge;
+- an adapter bridge.
+
+A Worker process can die and be replaced without changing Run identity.
+
+Do not persist Worker runtime handles. Record lease, heartbeat, handoff, crash, and termination events when material.
+
+The initial default is one active Worker lease per Run.
+
+### Model invocation
+
+A model invocation is one provider request and response stream owned by a Run.
+
+A Run can contain zero, one, or many model invocations.
+
+A model invocation:
+
+- uses one immutable Context manifest;
+- uses one Agent binding snapshot when present;
+- can request Tool calls;
+- records normalized events, usage, output, failure, cancellation, and provider mappings;
+- cannot mark the Task, Run, or Session complete by itself.
+
+## Required Run data
+
+A Run must have or reference:
 
 ```elixir
 %Kiln.Run{
   id: run_id,
   session_id: session_id,
+  task_id: task_id,
   root_run_id: root_run_id,
   parent_run_id: parent_run_id,
-  kind: :steward | :builder | :scout | :verifier | :research | :system,
-  status: :running,
-  capability_profile: capability_profile,
-  provider_ref: provider_ref,
-  execution_ref: execution_ref,
+  status: status,
+  context_manifest_id: context_manifest_id,
+  agent_binding: agent_binding,
+  limits: limits,
   created_at: created_at,
   updated_at: updated_at
 }
@@ -91,65 +200,26 @@ A run must have or reference:
 
 The exact Elixir type is provisional. The fields express required domain information.
 
-Each run must also own or reference:
+Each Run must also own or reference:
 
-- its task statement;
-- its context manifest;
-- its transcript projection;
-- its tool executions;
-- its artifacts;
-- its evidence;
-- its observed mutations;
-- its token and cost accounting;
-- its time and resource limits;
-- its cancellation state;
-- its attention state;
-- its completion result.
+- Task statement and criteria;
+- Context manifest;
+- Agent binding when present;
+- Worker leases;
+- model invocations;
+- requested Capabilities and active Capability grants;
+- Resources;
+- Tool calls;
+- Commands and Terminals;
+- attention and interruption state;
+- Artifacts and Change sets;
+- Claims and Evidence;
+- Receipts and Checkpoints;
+- token, cost, time, and Resource accounting;
+- failures, warnings, risks, unknowns, and exclusions;
+- structured result.
 
-## Run lineage and OTP supervision
-
-Logical lineage and runtime supervision are separate relationships.
-
-```text
-Logical run graph
-
-Root run
-├── Scout run
-├── Builder run
-└── Verifier run
-```
-
-```text
-Runtime supervision
-
-Kiln.RunSupervisor
-├── Root run process
-├── Scout run process
-├── Builder run process
-└── Verifier run process
-```
-
-A run's `parent_run_id` defines:
-
-- why the run exists;
-- where its result returns;
-- how clients navigate the graph;
-- which run receives its structured completion result.
-
-An OTP supervisor defines:
-
-- process startup;
-- restart policy;
-- process termination;
-- fault containment.
-
-A logical parent must not be assumed to supervise the child process.
-
-A parent failure must not automatically erase useful child work. A child failure must not corrupt the parent run.
-
-The event journal restores durable run state. OTP restores running process structure.
-
-## Run statuses
+## Run lifecycle
 
 Kiln uses explicit statuses:
 
@@ -173,299 +243,450 @@ stale
 
 A status transition must include:
 
-- run identifier;
+- Run identity;
 - previous status;
 - next status;
 - reason;
 - event time;
-- sequence position.
+- recorded event sequence;
+- actor or causation;
+- relevant execution or Attention request.
 
-Kiln must not use a generic `busy` status as the only execution state.
+Kiln must not use `busy` as the only execution state.
 
-## Foreground and background runs
+### Terminal states
 
-### Foreground run
+`completed`, `failed`, and `canceled` are terminal for one Run attempt.
 
-A foreground child is expected to receive immediate user attention.
+`orphaned` means Kiln does not know the current state of an external execution or Worker after recovery. It is not success.
+
+`stale` means the Run result or its supporting Evidence no longer applies to the required current state. It does not erase history.
+
+### Resume rules
+
+A paused Run can resume.
+
+An interrupted Run can resume when the event journal and external state establish a safe continuation.
+
+A canceled Run does not resume. A new attempt requires a new Run.
+
+An orphaned Run can resume only after explicit reconciliation establishes that duplicate external effects cannot occur.
+
+## Run lineage and OTP supervision
+
+Logical lineage and runtime supervision are separate relationships.
+
+```text
+Logical Run graph
+
+Root Run
+├── Scout Run
+├── Builder Run
+└── Verifier Run
+```
+
+```text
+Possible runtime supervision
+
+Kiln.RunSupervisor
+├── active Root Run process
+├── active Scout Run process
+├── active Builder Run process
+└── active Verifier Run process
+```
+
+A Run's `parent_run_id` defines:
+
+- why the Run exists;
+- where its structured result returns;
+- how Clients navigate the graph;
+- which Run can coordinate its Task relationship.
+
+An OTP supervisor defines:
+
+- process startup;
+- restart policy;
+- process termination;
+- fault containment.
+
+A logical Parent Run must not be assumed to supervise the Child process.
+
+A Parent failure must not erase useful Child work. A Child failure must not corrupt Parent state.
+
+The event journal restores durable Run state. OTP restores running process structure.
+
+## Foreground and background Runs
+
+Foreground and background are interaction hints. They do not change Run identity or authority.
+
+### Foreground Run
+
+A foreground Child Run is expected to receive immediate user attention.
 
 Typical flow:
 
 ```text
-Parent delegates
-→ child run starts
-→ client opens the child
-→ parent waits or continues by policy
-→ child returns a structured result
-→ client can return to the parent
+Parent Run creates Child Task and Run
+→ Child Run starts
+→ Client opens the Child Run
+→ Parent waits or continues by policy
+→ Child Run returns a structured result
+→ Client can return to the Parent Run
 ```
 
-Use a foreground run for:
+Use a foreground Run for:
 
 - interactive debugging;
 - design investigation;
-- work that is likely to need user steering;
+- work likely to need user steering;
 - permission-sensitive execution.
 
-### Background run
+### Background Run
 
-A background child executes without changing client focus.
+A background Child Run executes without changing Client focus.
 
 Typical flow:
 
 ```text
-Parent delegates
-→ child run starts
-→ client remains on the parent
-→ parent shows a live child projection
+Parent Run creates Child Task and Run
+→ Child Run starts
+→ Client remains on Parent Run
+→ Parent projection shows Child activity
 → completion or attention is routed globally
 ```
 
-Use a background run for:
+Use a background Run for:
 
-- repository search;
+- Repository search;
 - documentation lookup;
 - slow verification;
 - read-only analysis;
 - independent review.
 
-Kiln must not change client focus automatically when a child completes.
+Kiln must not change Client focus automatically when a Child Run completes.
 
 ## Client-local focus
 
-The shared session stores the run graph. Each connected client stores its own focused run.
+The shared Session stores the Run graph. Each connected Client stores its own focused Run.
 
 ```text
-Terminal client A → root run
-Terminal client B → verifier run
-Web client         → scout run
+Terminal Client A → Root Run
+Terminal Client B → Verifier Run
+Web Client         → Scout Run
 ```
 
 A focus change must not:
 
-- pause a run;
-- change another client's focus;
-- change the session's root run;
-- reassign run authority;
-- alter execution state.
+- pause a Run;
+- change another Client's focus;
+- change the Session Root Run;
+- reassign authority;
+- alter execution state;
+- change scheduling.
 
-A client focus record should contain:
+Client focus is transient interface state unless the Client stores it as non-authoritative convenience data.
 
-- client identifier;
-- session identifier;
-- focused run identifier;
-- selected child or artifact;
-- viewport state;
-- last observed event sequence.
+## Parent projection and Child result
 
-Client focus is transient interface state unless a client chooses to persist it.
-
-## Parent projection
-
-A parent run must expose each child through a live projection.
+A Parent Run must expose each Child Run through a live projection.
 
 The projection should include:
 
-- run title and kind;
+- Task title and Run kind hint;
 - status;
 - elapsed time;
-- resource use;
+- token, cost, and Resource use;
 - current activity summary;
+- effective-authority summary;
 - attention state;
-- artifact count;
-- evidence count;
-- completion result when available.
+- Artifact and Evidence counts;
+- structured result when available.
 
-The parent projection must not copy the full child transcript into the parent transcript.
+The Parent projection must not copy the full Child transcript or Context into the Parent.
 
-A child completion result should contain:
+A Child result should contain:
 
+- Task outcome;
 - summary;
-- observed evidence;
-- inferences;
-- unknowns;
-- unresolved risks;
-- artifact references;
+- observed facts and Evidence references;
+- Claims and inferences;
+- unknowns and unresolved risks;
+- Artifact and Change-set references;
+- failures and warnings;
 - recommended next action when applicable.
 
-## Attention routing
+## Context scope
 
-Any run can require attention.
+Each Run has one current immutable Context manifest.
 
-An attention item must include:
+A later Context update creates a new manifest.
 
-```elixir
-%Kiln.Attention{
-  id: attention_id,
-  session_id: session_id,
-  run_id: run_id,
-  parent_run_id: parent_run_id,
-  type: :question | :permission | :conflict | :failure | :decision,
-  urgency: :blocking | :high | :normal,
-  summary: summary,
-  response_schema: response_schema,
-  created_at: created_at
-}
+Each Context item must record:
+
+- source;
+- digest;
+- trust class;
+- sensitivity;
+- inclusion reason;
+- freshness;
+- token estimate;
+- transformation history.
+
+An Artifact does not enter Context automatically.
+
+A Child Run does not receive the Parent transcript or Context by default. It receives the minimum required Context items for its Task.
+
+Reference-only Repository content remains untrusted data. It cannot issue instructions, change policy, or gain authority.
+
+## Capabilities and authority
+
+Each Run receives explicit Capability grants and limits.
+
+Capability availability is not permission.
+
+Effective authority is:
+
+```text
+available Capability
+∩ Workspace limits
+∩ Project Repository trust policy
+∩ Privacy policy
+∩ Session limits
+∩ active Run Capability grant
+∩ Resource scope and operation limits
 ```
 
-The exact Elixir type is provisional.
+A Child Run inherits no ambient authority from its Parent Run.
 
-Attention routing must not depend on nesting depth.
+The Parent can request a new Child grant. Policy and the authorized actor decide it.
 
-A client must be able to:
+An Agent, Skill, Tool, adapter, or Environment cannot grant authority.
 
-- answer from a global attention view;
-- open the requesting run;
-- route the item to the parent run;
-- approve or deny a permission request;
-- cancel the requesting run;
-- defer a non-blocking item.
+## Tools, Commands, and Terminals
 
-A run in `waiting_for_user` or `waiting_for_permission` must identify the active attention item.
+A Tool call invokes one Kiln-native operation contract.
+
+A Tool declares required Capabilities. Kiln validates effective authority before execution.
+
+A Tool call can create a Command.
+
+A Command is a supervised operating-system process specification and execution record.
+
+A Terminal is an interactive process Resource owned by one Command and Run while open.
+
+A Tool call does not automatically become a Child Run.
+
+Use a Child Run only when the delegated operation needs independent Run properties.
+
+## Attention and interruption
+
+Any Run can raise an Attention request.
+
+Attention types include:
+
+- question;
+- Approval;
+- permission;
+- conflict;
+- failure;
+- decision;
+- priority.
+
+Attention routing must not depend on Run depth.
+
+An Interruption records a request to pause, cancel, detach, stop input, or terminate a Run or execution.
+
+Pause can be resumable. Cancel is terminal for that Run or execution attempt.
+
+The target process handles live signaling. The Interruption record remains durable data.
+
+## Artifacts, Claims, Evidence, and Receipts
+
+A Run can produce Artifacts and Change sets.
+
+An Artifact is immutable content or a durable reference. It is not automatically Context or Evidence.
+
+A Change set is an Artifact with Repository mutation semantics and a base fingerprint.
+
+A Claim is an assertion. It can be supported, disputed, refuted, superseded, or withdrawn.
+
+Evidence is an immutable observation with method, producer, result, Repository or Environment state binding, and freshness rule.
+
+A Receipt is an immutable sealed manifest that references Evidence, state, failures, warnings, unknowns, and outcomes.
+
+A Receipt cannot turn a Claim into Evidence or make stale Evidence current.
 
 ## Event model
 
 The event journal should record at least:
 
 ```text
-run.created
-run.started
-run.status_changed
-run.output_appended
-run.tool_started
-run.tool_completed
-run.child_created
-run.attention_required
-run.attention_resolved
-run.artifact_created
-run.evidence_recorded
-run.mutation_observed
-run.completed
-run.failed
-run.canceled
-run.orphaned
+RunCreated
+RunQueued
+RunStarted
+RunStatusChanged
+WorkerLeaseGranted
+WorkerHeartbeatRecorded
+WorkerLeaseExpired
+AgentBound
+ContextManifestSelected
+CapabilityRequested
+CapabilityGranted
+CapabilityDenied
+CapabilityRevoked
+ModelInvocationStarted
+ModelInvocationCompleted
+ModelInvocationFailed
+ToolCallRequested
+ToolCallStarted
+ToolCallCompleted
+ToolCallFailed
+CommandStarted
+CommandTerminated
+TerminalOpened
+TerminalClosed
+ChildRunCreated
+AttentionRequired
+AttentionResolved
+InterruptionRequested
+InterruptionApplied
+ArtifactCreated
+ChangeSetCreated
+ClaimRecorded
+EvidenceRecorded
+EvidenceInvalidated
+ReceiptSealed
+CheckpointCreated
+RunCompleted
+RunFailed
+RunCanceled
+RunOrphaned
+RunMarkedStale
 ```
 
 Not every token must become a durable event.
 
-Live output may use bounded deltas while the journal stores compact, reconstructable segments.
+Live output can use bounded transient deltas while the journal stores compact, reconstructable segments and Artifact references.
 
-Interfaces consume projections from the event sequence. Interfaces must not poll every run process to reconstruct session state.
-
-## Capabilities
-
-Each run receives an explicit capability profile.
-
-Examples:
-
-```text
-inspect
-verify
-write_patch
-write_worktree
-network_research
-steward
-```
-
-A child run inherits no ambient authority from its parent.
-
-The parent may request a capability grant for the child. The capability broker remains authoritative.
-
-A run must not access secrets, paths, network hosts, or mutation operations that its profile does not allow.
+Interfaces consume projections from the event sequence. They must not poll every Run process to reconstruct Session state.
 
 ## Writing isolation
 
-Kiln must not allow multiple writing runs to mutate one checkout concurrently.
+Kiln must not allow multiple writing Runs to mutate one checkout concurrently.
 
-Before concurrent writing runs are enabled, Kiln must support at least one of:
+Before concurrent writing Runs are enabled, Kiln must support at least one of:
 
-1. one isolated Git worktree per writing run;
-2. one patch artifact per writing run that a controlling run reviews and applies.
+1. one isolated Git worktree per writing Run;
+2. one patch Artifact per writing Run that a controlling Run reviews and applies.
 
 The initial default is:
 
-- one active writer for the main checkout;
-- read-only children by default;
-- verifier runs without write access;
+- one active writer for the primary checkout;
+- read-only Child Runs by default;
+- Verifier Runs without write access;
+- no automatic patch application;
 - no automatic merge;
-- no child Git push.
+- no Child Git push.
 
-A writing run must identify its mutation boundary before execution.
+A writing Run must identify its Repository and path mutation boundary before execution.
+
+A Change set must record its base Repository fingerprint.
 
 ## Initial delegation limits
 
-The data model may support deeper graphs, but the initial product should use conservative defaults:
+The data model can support deeper graphs, but the initial product should use conservative defaults:
 
 ```text
-Maximum child depth:          2
-Maximum concurrent children:  3
-Default child capability:     read-only
-Default child result:         structured summary and evidence
-Default writing children:     disabled
+Maximum Child depth:          2
+Maximum concurrent Children:  3
+Default Child authority:      read-only grants
+Default Child result:         structured result with Claims and Evidence
+Default writing Children:     disabled
+Default active Workers:       1 per Run
 ```
 
-These values are provisional until dogfooding produces evidence.
+These values are provisional until dogfooding produces Evidence.
 
 ## Recovery
 
 After restart, Kiln must reconstruct:
 
-- the run graph;
-- each run's last durable status;
+- Run graph;
+- Task relationships;
+- each Run's last durable status;
+- Agent binding and Context manifest;
+- Worker lease expiry and orphan status;
 - unresolved attention;
-- artifacts and evidence;
-- parent-child relationships;
+- active Capability grants and revocations;
+- Artifacts, Change sets, Claims, Evidence, Receipts, and Checkpoints;
+- Parent-Child relationships;
 - interrupted executions;
-- orphaned runs;
-- client-independent session state.
+- Client-independent Session state.
 
-Recovery must not convert an interrupted run into a completed run.
+Recovery must not convert an interrupted or orphaned Run into a completed Run.
 
-A run with unknown external execution state must become `orphaned` or another explicit non-success state.
+A Run with unknown external execution state must remain `orphaned` or another explicit non-success state until reconciliation.
+
+A replacement Worker must not repeat a mutation or external effect without an idempotency decision.
 
 ## Interface requirements
 
-The command-line interface, terminal user interface, Phoenix interface, and future protocol clients must use the same run queries and commands.
+CLI, TUI, Phoenix, headless, and adapter Clients must use the same Run queries and commands.
 
 Candidate commands include:
 
-- create child run;
-- steer run;
-- pause run;
-- resume run;
-- cancel run;
-- resolve attention;
-- set client focus;
-- return a child result;
-- mark a run stale.
+- create Task and Run;
+- create Child Task and Child Run;
+- bind Agent;
+- select Context manifest;
+- request Capability grant;
+- start model invocation;
+- request Tool call;
+- steer, pause, resume, or cancel Run;
+- resolve Attention request;
+- set Client focus;
+- return Child result;
+- record Artifact, Claim, Evidence, Receipt, or Checkpoint;
+- mark Run stale.
 
 Candidate queries include:
 
-- get run;
-- list children;
-- get ancestry;
-- get descendants;
-- get run projection;
+- get Run;
+- get Task;
+- list Child Runs;
+- get ancestry and descendants;
+- get Run projection;
+- get Context manifest;
+- list Worker leases and executions;
+- list effective authority and grants;
 - list attention;
-- list artifacts;
-- list evidence;
-- get resource use.
+- list Artifacts and Change sets;
+- list Claims and Evidence;
+- get Resource use;
+- get Trace;
+- get Task satisfaction and completion readiness.
+
+External protocol messages must translate to these or later accepted Kiln-native operations.
 
 ## Non-goals
 
-The run model does not require:
+The Run model does not require:
 
 - unlimited recursive delegation;
-- peer-to-peer child communication;
-- agent-manager hierarchies;
-- shared mutable model context;
+- peer-to-peer Child communication;
+- Agent-manager hierarchies;
+- shared mutable model Context;
 - automatic product decisions;
 - concurrent writes to one checkout;
 - automatic patch application;
 - automatic merging;
-- a permanent visual dashboard.
+- a permanent visual dashboard;
+- a process for every Run-related noun;
+- a database table for every schema definition;
+- adoption of an external Agent or Tool protocol as the internal model.
 
 ## Foundational rule
 
-A delegated model task must become a first-class run when the task needs independent inspection, steering, cancellation, evidence, or recovery.
+A Task that needs independent execution properties must use a Run.
 
-Delegated work must not become an opaque background tool call.
+The Run remains the durable work identity across Agents, Workers, model invocations, Tools, Commands, processes, Clients, adapters, interruption, recovery, and Evidence production.

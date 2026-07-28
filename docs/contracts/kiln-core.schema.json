@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kiln:schema:core:v0",
+  "title": "Kiln Core Domain Contracts v0",
+  "description": "Protocol-neutral contracts for Kiln scope, work, context, client-focus, and policy entities.",
+  "oneOf": [
+    { "$ref": "#/$defs/workspace" },
+    { "$ref": "#/$defs/project" },
+    { "$ref": "#/$defs/repository" },
+    { "$ref": "#/$defs/environment" },
+    { "$ref": "#/$defs/session" },
+    { "$ref": "#/$defs/task" },
+    { "$ref": "#/$defs/run" },
+    { "$ref": "#/$defs/client" },
+    { "$ref": "#/$defs/clientFocus" },
+    { "$ref": "#/$defs/contextManifest" },
+    { "$ref": "#/$defs/repositoryTrustPolicy" },
+    { "$ref": "#/$defs/privacyPolicy" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Opaque Kiln-generated UUIDv7 identifier."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._+-]*:[A-Fa-f0-9]+$"
+    },
+    "entityMeta": {
+      "type": "object",
+      "required": ["schema_version", "created_at"],
+      "properties": {
+        "schema_version": { "const": "kiln.domain/v0" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "updated_at": { "$ref": "#/$defs/timestamp" },
+        "last_event_sequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["workspace_id", "name", "root_paths", "meta"],
+      "properties": {
+        "workspace_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "root_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "status": { "enum": ["open", "closed", "archived"] },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "project": {
+      "type": "object",
+      "required": ["project_id", "workspace_id", "name", "status", "instruction_revision", "repository_trust_policy_id", "privacy_policy_id", "meta"],
+      "properties": {
+        "project_id": { "$ref": "#/$defs/id" },
+        "workspace_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["active", "paused", "archived"] },
+        "instruction_revision": { "type": "string", "minLength": 1 },
+        "default_repository_id": { "$ref": "#/$defs/id" },
+        "default_environment_id": { "$ref": "#/$defs/id" },
+        "repository_trust_policy_id": { "$ref": "#/$defs/id" },
+        "privacy_policy_id": { "$ref": "#/$defs/id" },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "repository": {
+      "type": "object",
+      "required": ["repository_id", "workspace_id", "vcs", "checkout_path", "availability", "meta"],
+      "properties": {
+        "repository_id": { "$ref": "#/$defs/id" },
+        "workspace_id": { "$ref": "#/$defs/id" },
+        "vcs": { "const": "git" },
+        "checkout_path": { "type": "string", "minLength": 1 },
+        "canonical_remote": { "type": ["string", "null"] },
+        "availability": { "enum": ["available", "unavailable", "removed"] },
+        "observed_branch": { "type": ["string", "null"] },
+        "observed_commit": { "type": ["string", "null"] },
+        "observed_dirty": { "type": ["boolean", "null"] },
+        "observed_fingerprint": { "type": ["string", "null"] },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "projectRepositoryMembership": {
+      "type": "object",
+      "required": ["project_id", "repository_id", "role", "instruction_authority", "write_policy"],
+      "properties": {
+        "project_id": { "$ref": "#/$defs/id" },
+        "repository_id": { "$ref": "#/$defs/id" },
+        "role": {
+          "enum": ["primary", "secondary_writable", "dependency", "reference_only", "denied"]
+        },
+        "instruction_authority": {
+          "enum": ["active_project", "none"]
+        },
+        "write_policy": {
+          "enum": ["allowed_by_grant", "patch_only", "read_only", "denied"]
+        },
+        "accepted_at": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "required": ["environment_id", "workspace_id", "kind", "status", "configuration_digest", "meta"],
+      "properties": {
+        "environment_id": { "$ref": "#/$defs/id" },
+        "workspace_id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["host", "container", "virtual_machine", "remote", "other"] },
+        "status": { "enum": ["defined", "starting", "ready", "degraded", "stopped", "unavailable"] },
+        "configuration_digest": { "$ref": "#/$defs/digest" },
+        "observed_fingerprint": { "type": ["string", "null"] },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "max_processes": { "type": "integer", "minimum": 0 },
+            "max_elapsed_ms": { "type": "integer", "minimum": 0 },
+            "network_default": { "enum": ["deny", "allow_list", "allow"] }
+          },
+          "additionalProperties": false
+        },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "acceptedRevision": {
+      "type": "object",
+      "required": ["revision_id", "digest", "accepted_at", "accepted_by"],
+      "properties": {
+        "revision_id": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "accepted_at": { "$ref": "#/$defs/timestamp" },
+        "accepted_by": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "required": ["session_id", "project_id", "primary_repository_id", "environment_id", "status", "objective", "completion_contract", "root_run_id", "policy_snapshot", "meta"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/id" },
+        "project_id": { "$ref": "#/$defs/id" },
+        "primary_repository_id": { "$ref": "#/$defs/id" },
+        "secondary_repository_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "environment_id": { "$ref": "#/$defs/id" },
+        "status": {
+          "enum": ["created", "active", "interrupted", "paused", "reconciling", "completed", "abandoned", "archived"]
+        },
+        "objective": { "$ref": "#/$defs/acceptedRevision" },
+        "completion_contract": { "$ref": "#/$defs/acceptedRevision" },
+        "root_run_id": { "$ref": "#/$defs/id" },
+        "policy_snapshot": {
+          "type": "object",
+          "required": ["repository_trust_policy_id", "privacy_policy_id"],
+          "properties": {
+            "repository_trust_policy_id": { "$ref": "#/$defs/id" },
+            "privacy_policy_id": { "$ref": "#/$defs/id" }
+          },
+          "additionalProperties": false
+        },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "required": ["task_id", "session_id", "statement", "status", "acceptance_criteria", "meta"],
+      "properties": {
+        "task_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "statement": { "type": "string", "minLength": 1 },
+        "status": {
+          "enum": ["proposed", "accepted", "ready", "blocked", "in_progress", "satisfied", "rejected", "abandoned", "superseded"]
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["criterion_id", "statement"],
+            "properties": {
+              "criterion_id": { "type": "string", "minLength": 1 },
+              "statement": { "type": "string", "minLength": 1 },
+              "required_evidence_class": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "dependency_task_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "run": {
+      "type": "object",
+      "required": ["run_id", "session_id", "task_id", "root_run_id", "status", "context_manifest_id", "agent_binding", "limits", "meta"],
+      "properties": {
+        "run_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "task_id": { "$ref": "#/$defs/id" },
+        "root_run_id": { "$ref": "#/$defs/id" },
+        "parent_run_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "status": {
+          "enum": ["created", "queued", "starting", "running", "waiting_for_tool", "waiting_for_child", "waiting_for_user", "waiting_for_permission", "paused", "verifying", "completed", "failed", "canceled", "orphaned", "stale"]
+        },
+        "context_manifest_id": { "$ref": "#/$defs/id" },
+        "agent_binding": {
+          "type": "object",
+          "required": ["agent_definition_id", "version_digest"],
+          "properties": {
+            "agent_definition_id": { "$ref": "#/$defs/id" },
+            "version_digest": { "$ref": "#/$defs/digest" }
+          },
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "max_elapsed_ms": { "type": "integer", "minimum": 0 },
+            "max_model_tokens": { "type": "integer", "minimum": 0 },
+            "max_cost_microunits": { "type": "integer", "minimum": 0 },
+            "max_child_runs": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "client": {
+      "type": "object",
+      "required": ["client_id", "kind", "status", "meta"],
+      "properties": {
+        "client_id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["cli", "tui", "web", "headless", "adapter", "other"] },
+        "actor_id": { "type": ["string", "null"] },
+        "status": { "enum": ["registered", "connected", "disconnected", "expired", "revoked"] },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "clientFocus": {
+      "type": "object",
+      "required": ["client_id", "session_id", "focused_run_id", "last_observed_event_sequence"],
+      "properties": {
+        "client_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "focused_run_id": { "$ref": "#/$defs/id" },
+        "selected_artifact_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "last_observed_event_sequence": { "type": "integer", "minimum": 0 },
+        "viewport": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "contextItem": {
+      "type": "object",
+      "required": ["context_item_id", "source_kind", "source_ref", "digest", "trust_class", "sensitivity", "inclusion_reason", "token_estimate"],
+      "properties": {
+        "context_item_id": { "$ref": "#/$defs/id" },
+        "source_kind": { "enum": ["instruction", "repository", "artifact", "skill", "user_input", "tool_result", "summary", "other"] },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "trust_class": { "enum": ["active_instruction", "active_source", "reference_only", "untrusted_external", "system_generated"] },
+        "sensitivity": { "enum": ["public", "internal", "confidential", "secret", "restricted"] },
+        "inclusion_reason": { "type": "string", "minLength": 1 },
+        "token_estimate": { "type": "integer", "minimum": 0 },
+        "transformation_chain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextManifest": {
+      "type": "object",
+      "required": ["context_manifest_id", "run_id", "items", "digest", "created_at"],
+      "properties": {
+        "context_manifest_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contextItem" }
+        },
+        "digest": { "$ref": "#/$defs/digest" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "supersedes_manifest_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "repositoryTrustPolicy": {
+      "type": "object",
+      "required": ["repository_trust_policy_id", "project_id", "version", "memberships", "symlink_policy", "cross_repository_read_default", "accepted_at"],
+      "properties": {
+        "repository_trust_policy_id": { "$ref": "#/$defs/id" },
+        "project_id": { "$ref": "#/$defs/id" },
+        "version": { "type": "string", "minLength": 1 },
+        "memberships": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/projectRepositoryMembership" }
+        },
+        "symlink_policy": { "enum": ["deny_escape", "allow_list", "allow"] },
+        "cross_repository_read_default": { "enum": ["deny", "reference_only", "allow_by_grant"] },
+        "accepted_at": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "privacyPolicy": {
+      "type": "object",
+      "required": ["privacy_policy_id", "project_id", "version", "default_egress", "retention", "accepted_at"],
+      "properties": {
+        "privacy_policy_id": { "$ref": "#/$defs/id" },
+        "project_id": { "$ref": "#/$defs/id" },
+        "version": { "type": "string", "minLength": 1 },
+        "default_egress": { "enum": ["deny", "redact", "allow_by_classification"] },
+        "allowed_destinations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "retention": {
+          "type": "object",
+          "required": ["event_days", "artifact_days", "secret_material"],
+          "properties": {
+            "event_days": { "type": "integer", "minimum": 0 },
+            "artifact_days": { "type": "integer", "minimum": 0 },
+            "secret_material": { "enum": ["never_store", "redacted_reference_only"] }
+          },
+          "additionalProperties": false
+        },
+        "accepted_at": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

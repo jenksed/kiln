@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kiln:schema:evidence:v0",
+  "title": "Kiln Evidence Domain Contracts v0",
+  "description": "Protocol-neutral contracts for Kiln artifacts, change sets, claims, evidence, receipts, trace references, and checkpoints.",
+  "oneOf": [
+    { "$ref": "#/$defs/artifact" },
+    { "$ref": "#/$defs/changeSet" },
+    { "$ref": "#/$defs/claim" },
+    { "$ref": "#/$defs/evidence" },
+    { "$ref": "#/$defs/receipt" },
+    { "$ref": "#/$defs/traceReference" },
+    { "$ref": "#/$defs/checkpoint" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Opaque Kiln-generated UUIDv7 identifier."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._+-]*:[A-Fa-f0-9]+$"
+    },
+    "entityMeta": {
+      "type": "object",
+      "required": ["schema_version", "created_at"],
+      "properties": {
+        "schema_version": { "const": "kiln.domain/v0" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "updated_at": { "$ref": "#/$defs/timestamp" },
+        "last_event_sequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "repositoryState": {
+      "type": "object",
+      "required": ["repository_id", "fingerprint"],
+      "properties": {
+        "repository_id": { "$ref": "#/$defs/id" },
+        "commit": { "type": ["string", "null"] },
+        "branch": { "type": ["string", "null"] },
+        "dirty": { "type": ["boolean", "null"] },
+        "fingerprint": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "producer": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["run", "worker", "model_invocation", "tool_call", "command", "user", "deterministic_service", "adapter"] },
+        "id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["artifact_id", "owner_scope", "producer", "kind", "media_type", "content_location", "content_digest", "size_bytes", "trust_class", "sensitivity", "retention_class", "meta"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/id" },
+        "owner_scope": {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "enum": ["project", "session", "run"] },
+            "id": { "$ref": "#/$defs/id" }
+          },
+          "additionalProperties": false
+        },
+        "producer": { "$ref": "#/$defs/producer" },
+        "kind": { "enum": ["input", "output", "report", "log", "snapshot", "patch", "diff", "source_copy", "summary", "receipt_attachment", "other"] },
+        "media_type": { "type": "string", "minLength": 1 },
+        "content_location": { "type": "string", "minLength": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "trust_class": { "enum": ["active_instruction", "active_source", "reference_only", "untrusted_external", "system_generated"] },
+        "sensitivity": { "enum": ["public", "internal", "confidential", "secret", "restricted"] },
+        "retention_class": { "enum": ["session", "project", "audit", "temporary", "policy_controlled"] },
+        "supersedes_artifact_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "changeSet": {
+      "type": "object",
+      "required": ["change_set_id", "artifact_id", "run_id", "repository_id", "base_state", "path_scope", "status", "content_digest", "meta"],
+      "properties": {
+        "change_set_id": { "$ref": "#/$defs/id" },
+        "artifact_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "repository_id": { "$ref": "#/$defs/id" },
+        "base_state": { "$ref": "#/$defs/repositoryState" },
+        "result_state": { "oneOf": [{ "$ref": "#/$defs/repositoryState" }, { "type": "null" }] },
+        "path_scope": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "status": { "enum": ["proposed", "reviewed", "applied", "rejected", "conflicted", "superseded", "stale"] },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "application_execution_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "meta": { "$ref": "#/$defs/entityMeta" }
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": ["claim_id", "session_id", "run_id", "source", "statement", "scope", "proof_class", "recorded_at"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "source": { "$ref": "#/$defs/producer" },
+        "statement": { "type": "string", "minLength": 1 },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "task_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+            "criterion_id": { "type": ["string", "null"] },
+            "artifact_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/id" }
+            },
+            "change_set_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/id" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "proof_class": { "enum": ["none", "observation", "command_result", "test", "review", "repository_state", "user_acceptance", "other"] },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "supersedes_claim_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "freshnessRule": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["repository_fingerprint_exact", "path_scope_fingerprint", "environment_fingerprint", "time_bound", "manual_invalidation", "compound"] },
+        "path_scope": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expires_at": { "oneOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+        "components": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["evidence_id", "session_id", "run_id", "producer", "method", "result", "recorded_at", "freshness_rule", "content_digest"],
+      "properties": {
+        "evidence_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "producer": { "$ref": "#/$defs/producer" },
+        "method": { "enum": ["repository_observation", "command", "test", "static_check", "review", "user_observation", "external_source", "other"] },
+        "result": { "enum": ["supports", "refutes", "inconclusive", "records_fact"] },
+        "claim_relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim_id", "relation"],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/id" },
+              "relation": { "enum": ["supports", "refutes", "inconclusive"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "criterion_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "repository_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/repositoryState" }
+        },
+        "environment_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "environment_fingerprint": { "type": ["string", "null"] },
+        "execution_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "freshness_rule": { "$ref": "#/$defs/freshnessRule" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "receiptItem": {
+      "type": "object",
+      "required": ["kind", "id", "digest"],
+      "properties": {
+        "kind": { "enum": ["claim", "evidence", "artifact", "change_set", "execution", "checkpoint", "failure", "warning", "unknown", "exclusion"] },
+        "id": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "currentness": { "enum": ["current", "stale", "not_applicable", "unknown"] }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["receipt_id", "scope", "schema_version", "repository_states", "items", "issuer", "sealed_at", "manifest_digest"],
+      "properties": {
+        "receipt_id": { "$ref": "#/$defs/id" },
+        "scope": {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "enum": ["run", "session", "verification", "checkpoint", "command"] },
+            "id": { "$ref": "#/$defs/id" }
+          },
+          "additionalProperties": false
+        },
+        "schema_version": { "const": "kiln.receipt/v0" },
+        "repository_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/repositoryState" }
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/receiptItem" }
+        },
+        "issuer": { "const": "kiln.deterministic_receipt_service" },
+        "sealed_at": { "$ref": "#/$defs/timestamp" },
+        "manifest_digest": { "$ref": "#/$defs/digest" },
+        "signature": { "type": ["string", "null"] },
+        "supersedes_receipt_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "traceReference": {
+      "type": "object",
+      "required": ["trace_id", "scope", "first_event_sequence", "last_event_sequence"],
+      "properties": {
+        "trace_id": { "$ref": "#/$defs/id" },
+        "scope": {
+          "type": "object",
+          "required": ["session_id"],
+          "properties": {
+            "session_id": { "$ref": "#/$defs/id" },
+            "run_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+          },
+          "additionalProperties": false
+        },
+        "first_event_sequence": { "type": "integer", "minimum": 0 },
+        "last_event_sequence": { "type": "integer", "minimum": 0 },
+        "materialization_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "runCheckpointState": {
+      "type": "object",
+      "required": ["run_id", "status"],
+      "properties": {
+        "run_id": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["created", "queued", "starting", "running", "waiting_for_tool", "waiting_for_child", "waiting_for_user", "waiting_for_permission", "paused", "verifying", "completed", "failed", "canceled", "orphaned", "stale"] },
+        "last_event_sequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "checkpoint": {
+      "type": "object",
+      "required": ["checkpoint_id", "scope", "event_sequence", "repository_states", "run_states", "context_manifest_ids", "open_attention_request_ids", "artifact_ids", "created_at", "manifest_digest"],
+      "properties": {
+        "checkpoint_id": { "$ref": "#/$defs/id" },
+        "scope": {
+          "type": "object",
+          "required": ["session_id"],
+          "properties": {
+            "session_id": { "$ref": "#/$defs/id" },
+            "run_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }
+          },
+          "additionalProperties": false
+        },
+        "event_sequence": { "type": "integer", "minimum": 0 },
+        "repository_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/repositoryState" }
+        },
+        "environment_fingerprints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["environment_id", "fingerprint"],
+            "properties": {
+              "environment_id": { "$ref": "#/$defs/id" },
+              "fingerprint": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "run_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/runCheckpointState" }
+        },
+        "context_manifest_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "open_attention_request_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "manifest_digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
