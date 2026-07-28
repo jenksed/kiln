@@ -34,3 +34,5 @@ An accepted ADR MUST NOT be reversed without a superseding ADR. An accepted ADR 
 | [0005: Attach Project Steward responsibility to the root run](0005-project-steward.md) | Accepted | Proposed on P0-W04 stack |
 | [0006: Own a protocol-neutral internal domain model](0006-protocol-neutral-internal-domain.md) | Accepted | Proposed on P0-W06 |
 | [0007: Use Run as the primary execution unit](0007-run-primary-execution-unit.md) | Accepted | Proposed on P0-W06 |
+| [0008: Select the simplest reliable capability integration](0008-simplest-reliable-capability-integration.md) | Accepted | Proposed on P0-W07 |
+| [0009: Broker capabilities behind intent-level Tools](0009-broker-intent-level-capabilities.md) | Accepted | Proposed on P0-W07 |

@@ -276,6 +276,86 @@ A process MUST exist only when it owns concurrent state, lifecycle, timing, subs
 
 **Source:** ADR 0001, ADR 0007, `docs/INTERNAL-DOMAIN-MODEL.md`
 
+### KILN-INV-035: Capability integration follows the simplest reliable hierarchy
+
+Kiln MUST evaluate in-process code, native adapters, deterministic CLIs, local services, local MCP, remote APIs, remote MCP, and browser automation in that order.
+
+Kiln MUST select the earliest option that satisfies lifecycle, security, interoperability, isolation, output, and replaceability requirements.
+
+**Source:** `docs/decisions/0008-simplest-reliable-capability-integration.md`, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-036: Repository operations remain native
+
+Initial Repository reads, writes, path resolution, patch application, mutation observation, and fingerprint binding MUST use Kiln-native operations.
+
+Kiln MUST NOT put its core Repository authority behind MCP.
+
+**Source:** ADR 0008, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-037: Mature development tools remain mature tools
+
+Git SHOULD use a native adapter backed by the Git CLI.
+
+Build, test, lint, format, compiler, package-manager, and static-analysis behavior SHOULD use existing deterministic CLIs rather than Kiln reimplementations.
+
+**Source:** ADR 0008, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-038: Raw LSP stays behind semantic intent
+
+A model MUST NOT send or receive raw LSP messages through the core Tool surface.
+
+Kiln MUST translate language-server behavior through a native semantic adapter and Kiln-native result contracts.
+
+**Source:** ADR 0008, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-039: MCP is optional and is not a sandbox
+
+Kiln MUST NOT select MCP solely because a capability can be wrapped in MCP.
+
+MCP availability MUST NOT bypass Capability grants, Repository trust, Privacy policy, Approval, output limits, Artifact storage, Evidence rules, Traces, or Receipts.
+
+**Source:** ADR 0008, `docs/CAPABILITY-INTEGRATION.md`, `docs/SECURITY-MODEL.md`
+
+### KILN-INV-040: The full Capability catalog stays outside model Context
+
+The model-facing Tool projection MUST contain only the small intent-level operations relevant to the current Task phase, Run state, availability, and authority.
+
+Kiln MUST NOT expose one Tool for every CLI command, API endpoint, MCP Tool, LSP method, or adapter operation.
+
+**Source:** `docs/decisions/0009-broker-intent-level-capabilities.md`, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-041: The Capability broker is deterministic and cannot grant authority
+
+The broker MUST inventory, filter, rank, authorize, route, normalize, limit, and record Capability use through deterministic rules.
+
+The broker MUST NOT invent grants, infer permission from availability, or let an implementation select itself.
+
+**Source:** ADR 0009, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-042: Capability results are bounded and provenance-bearing
+
+Every Capability invocation MUST return a bounded Kiln-native result envelope.
+
+Large or binary results MUST become Artifacts. Kiln MUST preserve the selected implementation, authority decision, native status, normalization, redaction, truncation, fallback, and Repository state when relevant.
+
+**Source:** ADR 0009, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-043: Duplicate capabilities collapse behind one intent Tool
+
+Implementations that satisfy the same semantic operation MUST belong to a replacement group and appear as one model-facing Tool.
+
+A fallback MUST receive a new authority evaluation and MUST disclose implementation changes or semantic loss.
+
+**Source:** ADR 0009, `docs/CAPABILITY-INTEGRATION.md`
+
+### KILN-INV-044: Browser automation is a fallback
+
+Kiln MUST prefer a supported library, native adapter, CLI, service, API, or justified protocol integration over browser automation.
+
+Browser automation MAY be primary when browser behavior itself is under test.
+
+**Source:** ADR 0008, `docs/CAPABILITY-INTEGRATION.md`
+
 ## Review use
 
 A plan MUST list each invariant that constrains the work.

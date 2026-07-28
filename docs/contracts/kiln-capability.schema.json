@@ -1,0 +1,484 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiln.local/schemas/kiln-capability.schema.json",
+  "title": "Kiln Capability Contracts",
+  "description": "Protocol-neutral contracts for Capability registration, selection, model-facing Tool projection, and normalized results.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/capability_registration" },
+    { "$ref": "#/$defs/selection_decision" },
+    { "$ref": "#/$defs/model_tool_projection" },
+    { "$ref": "#/$defs/capability_result" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "digest": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "implementation_kind": {
+      "type": "string",
+      "enum": [
+        "in_process",
+        "native_adapter",
+        "cli",
+        "local_service",
+        "local_mcp",
+        "remote_api",
+        "remote_mcp",
+        "browser_automation"
+      ]
+    },
+    "task_phase": {
+      "type": "string",
+      "enum": [
+        "orientation",
+        "investigation",
+        "change",
+        "verification",
+        "reconciliation",
+        "recovery"
+      ]
+    },
+    "locality": {
+      "type": "string",
+      "enum": [
+        "in_process",
+        "host_local",
+        "workspace_local",
+        "network_local",
+        "remote"
+      ]
+    },
+    "lifecycle_mode": {
+      "type": "string",
+      "enum": [
+        "per_call",
+        "per_run",
+        "shared_managed",
+        "shared_external"
+      ]
+    },
+    "availability_state": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "probing",
+        "available",
+        "degraded",
+        "unavailable",
+        "incompatible",
+        "disabled"
+      ]
+    },
+    "output_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_inline_bytes",
+        "max_item_count",
+        "max_line_count",
+        "max_excerpt_bytes",
+        "streaming_supported",
+        "stable_pagination",
+        "artifact_policy"
+      ],
+      "properties": {
+        "max_inline_bytes": { "type": "integer", "minimum": 0 },
+        "max_item_count": { "type": "integer", "minimum": 0 },
+        "max_line_count": { "type": "integer", "minimum": 0 },
+        "max_excerpt_bytes": { "type": "integer", "minimum": 0 },
+        "streaming_supported": { "type": "boolean" },
+        "stable_pagination": { "type": "boolean" },
+        "artifact_policy": {
+          "type": "string",
+          "enum": ["never", "when_large", "always", "binary_only"]
+        },
+        "redaction_policy_ref": { "$ref": "#/$defs/id" },
+        "model_summary_policy_ref": { "$ref": "#/$defs/id" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["source", "observed_at"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "observed_at": { "$ref": "#/$defs/timestamp" },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "adapter_version": { "type": "string" },
+        "implementation_version": { "type": "string" }
+      }
+    },
+    "health_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["none", "on_demand", "periodic", "subscription"]
+        },
+        "interval_seconds": { "type": "integer", "minimum": 1 },
+        "timeout_seconds": { "type": "integer", "minimum": 1 },
+        "probe_operation": { "type": "string" }
+      }
+    },
+    "capability_registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "registration_id",
+        "capability_key",
+        "capability_version",
+        "implementation_id",
+        "implementation_kind",
+        "implementation_version",
+        "supported_operations",
+        "supported_task_phases",
+        "input_contract_ref",
+        "result_contract_ref",
+        "required_capabilities",
+        "resource_types",
+        "trust_class",
+        "privacy_class",
+        "locality",
+        "lifecycle_mode",
+        "isolation_mode",
+        "cancellation_mode",
+        "streaming_mode",
+        "output_profile",
+        "health_probe",
+        "availability_state",
+        "availability_observed_at",
+        "replacement_group",
+        "semantic_fingerprint",
+        "provenance"
+      ],
+      "properties": {
+        "schema_version": { "const": "kiln.capability/v0" },
+        "registration_id": { "$ref": "#/$defs/id" },
+        "capability_key": { "$ref": "#/$defs/id" },
+        "capability_version": { "type": "string", "minLength": 1 },
+        "implementation_id": { "$ref": "#/$defs/id" },
+        "implementation_kind": { "$ref": "#/$defs/implementation_kind" },
+        "implementation_version": { "type": "string", "minLength": 1 },
+        "provider_or_owner": { "type": "string" },
+        "supported_operations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "supported_task_phases": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/task_phase" }
+        },
+        "input_contract_ref": { "$ref": "#/$defs/id" },
+        "result_contract_ref": { "$ref": "#/$defs/id" },
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "resource_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "trust_class": { "type": "string", "minLength": 1 },
+        "privacy_class": { "type": "string", "minLength": 1 },
+        "locality": { "$ref": "#/$defs/locality" },
+        "lifecycle_mode": { "$ref": "#/$defs/lifecycle_mode" },
+        "isolation_mode": { "type": "string", "minLength": 1 },
+        "cancellation_mode": { "type": "string", "minLength": 1 },
+        "streaming_mode": { "type": "string", "minLength": 1 },
+        "output_profile": { "$ref": "#/$defs/output_profile" },
+        "health_probe": { "$ref": "#/$defs/health_probe" },
+        "availability_state": { "$ref": "#/$defs/availability_state" },
+        "availability_observed_at": { "$ref": "#/$defs/timestamp" },
+        "priority_adjustment": { "type": "integer", "minimum": -100, "maximum": 100 },
+        "replacement_group": { "$ref": "#/$defs/id" },
+        "semantic_fingerprint": { "$ref": "#/$defs/digest" },
+        "disabled_reason": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "candidate_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registration_id",
+        "eligible",
+        "hierarchy_rank",
+        "exclusion_reasons"
+      ],
+      "properties": {
+        "registration_id": { "$ref": "#/$defs/id" },
+        "eligible": { "type": "boolean" },
+        "hierarchy_rank": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "exclusion_reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "semantic_loss": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "selection_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "selection_id",
+        "run_id",
+        "task_phase",
+        "model_operation",
+        "normalized_input_digest",
+        "candidates",
+        "decision",
+        "decided_at"
+      ],
+      "properties": {
+        "schema_version": { "const": "kiln.capability/v0" },
+        "selection_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "task_phase": { "$ref": "#/$defs/task_phase" },
+        "model_operation": { "$ref": "#/$defs/id" },
+        "normalized_input_digest": { "$ref": "#/$defs/digest" },
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/candidate_decision" }
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["selected", "unavailable", "denied", "approval_required", "unsupported"]
+        },
+        "selected_registration_id": { "$ref": "#/$defs/id" },
+        "fallback_registration_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "authority_decision_ref": { "$ref": "#/$defs/id" },
+        "fallback_requires_reauthorization": { "const": true },
+        "decided_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "model_tool_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "task_phase",
+        "generated_at",
+        "tools"
+      ],
+      "properties": {
+        "schema_version": { "const": "kiln.capability/v0" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "task_phase": { "$ref": "#/$defs/task_phase" },
+        "generated_at": { "$ref": "#/$defs/timestamp" },
+        "tools": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "purpose", "input_contract_ref", "authority_summary", "output_limit_summary"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": [
+                  "repo.search",
+                  "repo.read",
+                  "repo.change",
+                  "code.inspect",
+                  "docs.lookup",
+                  "runtime.inspect",
+                  "command.run",
+                  "verify.run",
+                  "artifact.read",
+                  "knowledge.search",
+                  "capability.request"
+                ]
+              },
+              "purpose": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "input_contract_ref": { "$ref": "#/$defs/id" },
+              "authority_summary": { "type": "string", "maxLength": 500 },
+              "output_limit_summary": { "type": "string", "maxLength": 500 },
+              "availability": { "$ref": "#/$defs/availability_state" },
+              "approval_required": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "native_error": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["category", "message"],
+      "properties": {
+        "category": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "native_code": { "type": ["string", "integer"] },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "result_provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "tool_call_id",
+        "model_operation",
+        "registration_id",
+        "implementation_kind",
+        "implementation_id",
+        "implementation_version",
+        "normalized_input_digest",
+        "started_at",
+        "ended_at"
+      ],
+      "properties": {
+        "tool_call_id": { "$ref": "#/$defs/id" },
+        "model_operation": { "$ref": "#/$defs/id" },
+        "registration_id": { "$ref": "#/$defs/id" },
+        "implementation_kind": { "$ref": "#/$defs/implementation_kind" },
+        "implementation_id": { "$ref": "#/$defs/id" },
+        "implementation_version": { "type": "string" },
+        "adapter_version": { "type": "string" },
+        "normalized_input_digest": { "$ref": "#/$defs/digest" },
+        "native_request_digest": { "$ref": "#/$defs/digest" },
+        "environment_id": { "$ref": "#/$defs/id" },
+        "resource_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "repository_fingerprint": { "$ref": "#/$defs/digest" },
+        "policy_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "grant_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "approval_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "ended_at": { "$ref": "#/$defs/timestamp" },
+        "native_status": { "type": ["string", "integer", "null"] },
+        "normalization_steps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "redaction_steps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fallback_from_registration_id": { "$ref": "#/$defs/id" },
+        "semantic_loss": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "capability_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "summary",
+        "structured_data",
+        "artifact_refs",
+        "claim_refs",
+        "evidence_refs",
+        "warnings",
+        "errors",
+        "truncated",
+        "provenance",
+        "metrics"
+      ],
+      "properties": {
+        "schema_version": { "const": "kiln.capability/v0" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "denied",
+            "canceled",
+            "timed_out",
+            "orphaned",
+            "unavailable",
+            "incompatible"
+          ]
+        },
+        "summary": { "type": "string", "maxLength": 4000 },
+        "structured_data": {},
+        "artifact_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "claim_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "attention_ref": { "$ref": "#/$defs/id" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "errors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/native_error" }
+        },
+        "truncated": { "type": "boolean" },
+        "continuation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "artifact_ref": { "$ref": "#/$defs/id" },
+            "cursor_ref": { "$ref": "#/$defs/id" },
+            "expires_at": { "$ref": "#/$defs/timestamp" }
+          }
+        },
+        "provenance": { "$ref": "#/$defs/result_provenance" },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "duration_ms": { "type": "integer", "minimum": 0 },
+            "inline_bytes": { "type": "integer", "minimum": 0 },
+            "artifact_bytes": { "type": "integer", "minimum": 0 },
+            "item_count": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

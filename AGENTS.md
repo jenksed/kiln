@@ -22,10 +22,11 @@ Before planned work:
 4. read `docs/PROJECT-INVARIANTS.md`;
 5. read `docs/AGENT-FRIENDLY-CODEBASE.md`;
 6. read `docs/ENGINEERING-QUALITY-RULES.md`;
-7. read `docs/INTERNAL-DOMAIN-MODEL.md` when work affects product entities, persistence, protocols, context, capabilities, security, evidence, interfaces, or recovery;
-8. read `docs/RUN-MODEL.md` and `docs/PROJECT-STEWARDSHIP.md` when work affects Sessions, Tasks, Runs, providers, interfaces, execution, Evidence, or recovery;
-9. read applicable architecture and decision records;
-10. inspect current source, tests, Git state, and dependency direction.
+7. read `docs/INTERNAL-DOMAIN-MODEL.md` when work affects product entities, persistence, protocols, Context, Capabilities, security, Evidence, interfaces, or recovery;
+8. read `docs/CAPABILITY-INTEGRATION.md` when work adds or changes a library, native adapter, CLI, service, API, MCP server, browser integration, Tool contract, or Capability broker behavior;
+9. read `docs/RUN-MODEL.md` and `docs/PROJECT-STEWARDSHIP.md` when work affects Sessions, Tasks, Runs, providers, interfaces, execution, Evidence, or recovery;
+10. read applicable architecture and decision records;
+11. inspect current source, tests, Git state, and dependency direction.
 
 Use the `kiln-work-package` Skill for this sequence.
 
@@ -45,8 +46,12 @@ For Elixir and OTP changes, also load `kiln-elixir-otp` and read `docs/ELIXIR-OT
 10. Use Run as the primary execution unit. Do not use Agent persona, Worker process, model invocation, or protocol thread as durable work identity.
 11. Do not make an artificial organization of agents a core abstraction.
 12. Do not allow an external protocol to become Kiln's internal domain model.
-13. Do not add scaffolding, marketplaces, cloud services, or browser integrated development environment features to early milestones.
-14. Preserve each `KILN-INV-*` invariant unless an accepted ADR supersedes it.
+13. Select the simplest reliable Capability integration that satisfies lifecycle, security, interoperability, isolation, output, and replaceability requirements.
+14. Keep the full Capability catalog outside model Context.
+15. Do not rebuild mature development tools merely to make them appear agent-native.
+16. Do not treat MCP or a process boundary as a security sandbox.
+17. Do not add scaffolding, marketplaces, cloud services, or browser integrated development environment features to early milestones.
+18. Preserve each `KILN-INV-*` invariant unless an accepted ADR supersedes it.
 
 ## Language and protocol boundaries
 
@@ -56,8 +61,56 @@ For Elixir and OTP changes, also load `kiln-elixir-otp` and read `docs/ELIXIR-OT
 - ACP, MCP, LSP, A2A, AG-UI, AHP, provider APIs, and client bridges MUST translate to Kiln-native commands, entities, events, and schemas.
 - External identifiers MUST remain in adapter-owned mappings.
 - Core modules MUST NOT import protocol-specific types.
+- Raw LSP MUST remain behind a native semantic adapter.
+- MCP MUST remain an optional adapter boundary and MUST NOT become the default route to Kiln core operations.
+- Browser automation MUST remain a fallback unless browser behavior itself is under test.
 - Rust may later support operating-system isolation if a demonstrated requirement justifies it.
 - Do not introduce a second language without an accepted architecture decision record (ADR).
+
+## Capability integration rules
+
+Evaluate integrations in this order:
+
+1. in-process function or library;
+2. native Kiln adapter;
+3. direct deterministic CLI;
+4. local service API or Unix-domain socket;
+5. local MCP server;
+6. remote API or software development kit;
+7. remote MCP server;
+8. browser or user-interface automation.
+
+Choose the earliest option that satisfies all material requirements. Document why each earlier practical option was rejected.
+
+Initial boundaries:
+
+- Repository reads, writes, patching, and fingerprint binding MUST be native.
+- Git SHOULD use a native adapter backed by the Git CLI.
+- Build, test, lint, format, compiler, package-manager, and static-analysis behavior SHOULD use existing CLIs.
+- Raw LSP MUST NOT appear in the model-facing Tool surface.
+- Local MCP requires material lifecycle, state, sharing, replacement, discovery, or existing-implementation value.
+- Remote MCP requires material interoperability and discovery value beyond a narrow API.
+- MCP MUST NOT be used solely because a capability can be wrapped in MCP.
+- Capability availability MUST NOT imply permission.
+- A fallback implementation MUST receive a new authority evaluation.
+- Large or unbounded results MUST become Artifacts.
+- Tool results MUST NOT become Evidence automatically.
+
+The initial model-facing Tool namespace is limited to:
+
+- `repo.search`;
+- `repo.read`;
+- `repo.change`;
+- `code.inspect`;
+- `docs.lookup`;
+- `runtime.inspect`;
+- `command.run`;
+- `verify.run`;
+- `artifact.read`;
+- `knowledge.search`;
+- `capability.request`.
+
+Do not expose one model-facing Tool for every CLI command, API endpoint, MCP Tool, LSP method, or adapter operation.
 
 ## Elixir and OTP rules
 
@@ -230,7 +283,7 @@ During implementation:
 - do not reverse an accepted ADR without a superseding ADR;
 - do not add speculative extension points or compatibility paths;
 - do not include unrelated cleanup;
-- preserve internal-domain, Run, and stewardship boundaries when work touches state, interfaces, adapters, execution, Context, policy, or Evidence.
+- preserve internal-domain, Run, stewardship, and Capability-integration boundaries when work touches state, interfaces, adapters, execution, Context, policy, or Evidence.
 
 Before completion:
 
@@ -249,11 +302,23 @@ If required verification cannot run, report `implemented but unverified`. Do not
 
 ## Dependency discipline
 
-Use the `kiln-dependency-review` Skill before adding a library, executable, service, native implemented function (NIF), port program, or development Tool.
+Use the `kiln-dependency-review` Skill before adding a library, executable, service, native implemented function (NIF), port program, protocol client, browser framework, or development Tool.
 
-A dependency proposal MUST identify the requirement, exact version, official interface, maintenance Evidence, license, transitive effect, security boundary, alternatives, and removal cost.
+A dependency proposal MUST identify:
 
-Do not add a dependency because it is common in unrelated projects.
+- the product requirement;
+- the applicable Capability hierarchy position;
+- why earlier practical options are insufficient;
+- exact version and official interface;
+- maintenance Evidence and license;
+- transitive effect;
+- lifecycle and cancellation semantics;
+- security and Privacy boundary;
+- output and provenance contract;
+- alternatives;
+- removal and replacement cost.
+
+Do not add a dependency because it is common in unrelated projects or because it exposes MCP.
 
 ## Standard checks
 

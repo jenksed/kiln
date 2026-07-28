@@ -70,8 +70,12 @@ for file in "${required_prompts[@]}"; do
   [[ -f "$file" ]] || fail "required prompt is missing: $file"
 done
 
-grep -Fq "Development agents are not product agents" docs/PROJECT-INVARIANTS.md ||
-  fail "project invariant for development agents is missing"
+invariant_file=docs/PROJECT-INVARIANTS.md
+invariant_id=KILN-INV-014
+
+[[ -f "$invariant_file" ]] || fail "project invariant file is missing: $invariant_file"
+grep -Eq "^### ${invariant_id}:" "$invariant_file" ||
+  fail "required development-agent invariant ${invariant_id} is missing from ${invariant_file}"
 
 printf 'validate-agent-assets: pass\n'
 printf 'skills: %s\n' "${#skills[@]}"

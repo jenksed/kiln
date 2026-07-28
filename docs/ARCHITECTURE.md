@@ -2,7 +2,8 @@
 
 **Document type:** Reference  
 **Status:** Foundational direction; implementation details remain provisional  
-**Internal-domain authority:** `docs/INTERNAL-DOMAIN-MODEL.md`
+**Internal-domain authority:** `docs/INTERNAL-DOMAIN-MODEL.md`  
+**Capability-integration authority:** `docs/CAPABILITY-INTEGRATION.md`
 
 ## Architectural position
 
@@ -10,7 +11,9 @@ Kiln owns one protocol-neutral internal domain model.
 
 The primary durable execution unit is a Run.
 
-Interfaces, providers, language servers, tool servers, agent clients, terminals, and future protocols connect through domain commands, queries, events, projections, and adapters. They do not own Session or Run truth.
+Kiln connects to capabilities through the simplest reliable integration that satisfies lifecycle, security, interoperability, isolation, output, and replaceability requirements.
+
+Interfaces, providers, language servers, tool servers, agent clients, terminals, and future protocols connect through domain commands, queries, events, projections, native adapters, and external adapters. They do not own Session, Run, Capability, policy, or Evidence truth.
 
 ## System shape
 
@@ -19,7 +22,7 @@ Interfaces, providers, language servers, tool servers, agent clients, terminals,
                                |
             +------------------+------------------+
             |                  |                  |
-           CLI                TUI        Phoenix or headless client
+           CLI                TUI        Phoenix or headless Client
             |                  |                  |
             +------------------+------------------+
                                |
@@ -29,32 +32,74 @@ Interfaces, providers, language servers, tool servers, agent clients, terminals,
      |                         |                         |
  Workspace and Project    Session and Task        Run graph and Steward
      |                         |                         |
- Repository, Environment   Objective and criteria   Workers and executions
+ Repository, Environment  Objective and criteria   Workers and executions
      |                         |                         |
      +-------------------------+-------------------------+
                                |
        Context | Capability policy | Evidence | Recovery
                                |
+                 Capability catalog and broker
+                               |
+     +-------------+-------------+-------------+-------------+
+     |             |             |             |             |
+ Native code   Native adapter   CLI or local   Remote API   Protocol or UI
+                               service                      adapter
+     |             |             |             |             |
+     +-------------+-------------+-------------+-------------+
+                               |
                   Append-oriented event journal
                                |
                             SQLite
-                               |
-             +-----------------+-----------------+
-             |                 |                 |
-        Native Tools      External processes   Repository and OS
 ```
 
-External integrations enter through adapters:
+The Capability broker selects an implementation. It does not grant authority or replace the execution supervisor.
+
+## External integration shape
 
 ```text
-External protocol, provider, or mature tool
-                    |
-          Adapter-owned translation
-                    |
-              Kiln domain API
+External protocol, provider, mature tool, or browser surface
+                            |
+                  Adapter-owned translation
+                            |
+               Kiln Capability registration
+                            |
+             Capability broker and authorization
+                            |
+                    Kiln domain Tool call
+                            |
+                 Normalized result and events
 ```
 
 No external protocol object appears between the domain API and the internal model.
+
+## Capability integration hierarchy
+
+Kiln evaluates integrations in this default order:
+
+1. in-process function or library;
+2. native Kiln adapter;
+3. direct deterministic CLI;
+4. local service API or Unix-domain socket;
+5. local MCP server;
+6. remote API or software development kit;
+7. remote MCP server;
+8. browser or user-interface automation.
+
+Kiln selects the earliest option that satisfies the required lifecycle, security, compatibility, cancellation, output, provenance, and replacement contract.
+
+The hierarchy does not mean that in-process code always wins. A mature CLI or isolated service can be the simpler reliable option when a library creates tighter coupling, weaker compatibility, or unsafe ambient authority.
+
+## Initial integration positions
+
+- Repository reads, writes, patching, and fingerprint binding are native Kiln operations.
+- Git normally uses a native adapter backed by the Git CLI.
+- Build, test, lint, format, compiler, package-manager, and static-analysis behavior uses existing deterministic CLIs.
+- Raw LSP remains behind a native semantic adapter.
+- MCP is optional and is not selected merely because a capability can be wrapped in MCP.
+- Local MCP requires material lifecycle, state, sharing, replacement, discovery, or existing-implementation value.
+- Remote MCP requires material interoperability and discovery value beyond a narrow direct API.
+- Browser automation is a fallback unless browser behavior is under test.
+- Mature tools are orchestrated rather than rebuilt.
 
 ## Domain hierarchy
 
@@ -125,7 +170,7 @@ A Run owns or references:
 
 Each Session has exactly one Root Run. The Root Run carries Project Steward responsibility by default.
 
-The Steward coordinates delivery. It does not own Repository truth, policy truth, Evidence truth, or user authority.
+The Steward coordinates delivery. It does not own Repository truth, policy truth, Evidence truth, Capability truth, or user authority.
 
 ### Agent, Worker, and model invocation
 
@@ -139,7 +184,7 @@ A Worker or invocation can fail without changing Run identity.
 
 ## Execution layers
 
-Kiln separates durable work from live execution.
+Kiln separates desired work, durable execution, live execution, and capability implementation.
 
 ```text
 Task: desired outcome
@@ -150,10 +195,88 @@ Worker lease: live executor
         ↓
 Model invocation | Tool call | Command | Terminal
         ↓
+Capability broker selects implementation
+        ↓
+Native code | adapter | CLI | service | API | protocol | browser
+        ↓
 Artifact | Change set | Claim | Evidence
 ```
 
 A Tool call remains a Tool call unless the work requires independent inspection, steering, interruption, measurement, Evidence, or recovery. In that case, Kiln creates a Child Run.
+
+## Capability broker
+
+The broker is a deterministic control-plane responsibility.
+
+It owns or derives:
+
+- Capability definitions;
+- implementation registrations;
+- availability and compatibility observations;
+- Task-phase filtering;
+- duplicate and replacement groups;
+- hierarchy-based implementation ranking;
+- selection decisions;
+- output profiles;
+- normalized result envelopes;
+- Artifact-backed continuations;
+- Trace and Receipt references.
+
+The broker does not own:
+
+- Project intent;
+- Capability grants;
+- Repository trust policy;
+- Privacy policy;
+- Run lifecycle;
+- Tool implementation lifecycle;
+- Evidence freshness;
+- completion readiness.
+
+The full Capability catalog remains outside model Context.
+
+The model receives a small phase-relevant Tool projection, normally fewer than twelve Tools. Initial Tool names are:
+
+- `repo.search`;
+- `repo.read`;
+- `repo.change`;
+- `code.inspect`;
+- `docs.lookup`;
+- `runtime.inspect`;
+- `command.run`;
+- `verify.run`;
+- `artifact.read`;
+- `knowledge.search`;
+- `capability.request`.
+
+These names describe software-development intent. They do not expose implementation or protocol identity.
+
+## Result normalization
+
+Every implementation returns one Kiln-native result envelope with:
+
+- status;
+- bounded summary;
+- structured data;
+- Artifact references;
+- Claim and Evidence references when applicable;
+- Attention reference when applicable;
+- warnings and errors;
+- truncation and continuation state;
+- provenance;
+- metrics.
+
+Large, binary, or unbounded output becomes an Artifact. A Tool result does not become Evidence automatically.
+
+The normalized result preserves implementation, version, native status, input digest, Resource and Repository binding, authority references, timing, normalization, redaction, truncation, fallback, and semantic-loss information.
+
+## Duplicate capabilities
+
+Several registrations can satisfy one model-facing Tool.
+
+The broker groups overlapping implementations by semantic operation and result contract. It exposes one Tool, ranks implementations deterministically, and keeps alternatives outside model Context.
+
+A fallback requires new authorization. Kiln must not silently merge duplicate results unless comparison or independent verification is the Task.
 
 ## Runtime ownership
 
@@ -175,6 +298,8 @@ A candidate runtime shape is:
 Kiln.Application
 ├── Kiln.Store
 ├── Kiln.PolicyService
+├── Kiln.CapabilityCatalog
+├── Kiln.CapabilityBroker
 ├── Kiln.AdapterSupervisor
 ├── Kiln.WorkspaceSupervisor
 │   └── active Workspace coordinator when required
@@ -197,6 +322,8 @@ Kiln.Application
 
 This shape is directional. Requirements can combine or split services.
 
+`Kiln.CapabilityCatalog` can remain a data module or projection. `Kiln.CapabilityBroker` requires a process only if it owns live health subscriptions, invalidation timers, leases, or concurrent routing.
+
 A domain noun does not justify a process.
 
 ## Logical lineage is not supervision
@@ -218,7 +345,7 @@ A Child Run failure must not corrupt Parent Run state. A Parent Run restart must
 
 ## Domain API
 
-All Clients, Workers, Steward operations, and adapters must use explicit domain commands and queries.
+All Clients, Workers, Steward operations, broker operations, and adapters must use explicit domain commands and queries.
 
 Candidate commands include:
 
@@ -232,6 +359,9 @@ Candidate commands include:
 - create Root Run;
 - create Child Run;
 - bind Agent definition;
+- register Capability implementation;
+- record Capability availability;
+- select Capability implementation;
 - submit model invocation;
 - request Tool call;
 - request or revoke Capability grant;
@@ -250,7 +380,8 @@ Candidate queries include:
 - Task graph;
 - Run graph and Run projection;
 - active Worker leases and executions;
-- Capability availability, grants, and effective authority;
+- Capability catalog, availability, grants, selection, and effective authority;
+- current model-facing Tool projection;
 - Context manifest;
 - unresolved attention;
 - Artifact and Change-set inventory;
@@ -258,14 +389,16 @@ Candidate queries include:
 - Trace;
 - completion readiness.
 
-The exact API remains provisional. It must preserve the domain distinctions in `docs/INTERNAL-DOMAIN-MODEL.md`.
+The exact API remains provisional. It must preserve the domain distinctions in `docs/INTERNAL-DOMAIN-MODEL.md` and the integration rules in `docs/CAPABILITY-INTEGRATION.md`.
 
 ## Event and projection flow
 
 ```text
 Domain command or observed external fact
                   ↓
-          Authorization and validation
+          Validation and authority
+                  ↓
+ Capability selection when required
                   ↓
            Durable domain event
                   ↓
@@ -296,7 +429,9 @@ available Capability
 ∩ Resource scope and operation limits
 ```
 
-A Parent Run, Agent, Skill, Tool, adapter, or Environment cannot grant ambient authority.
+A Parent Run, Agent, Skill, Tool, adapter, Environment, MCP server, or broker cannot grant ambient authority.
+
+A fallback implementation requires a new authority evaluation because locality, egress, Resource access, lifecycle, and implementation trust can differ.
 
 ## Context and trust
 
@@ -308,7 +443,7 @@ Active-Project instructions can govern work.
 
 Reference-only Repository or Project content remains untrusted data. It cannot change instructions, policy, product direction, or authority without an explicit user decision and recorded revision.
 
-An Artifact does not enter Context automatically.
+An Artifact does not enter Context automatically. The full Capability catalog does not enter Context automatically.
 
 ## Claims, Evidence, and Receipts
 
@@ -316,7 +451,7 @@ A Claim is an assertion.
 
 Evidence is an immutable observation with method, producer, result, state binding, and freshness rule.
 
-A Receipt is an immutable sealed manifest that references Evidence, state, failures, warnings, unknowns, and outcomes.
+A Receipt is an immutable sealed manifest that references Evidence, Capability use, selected implementations, state, failures, warnings, unknowns, and outcomes.
 
 A Receipt cannot make stale or missing Evidence current.
 
@@ -324,17 +459,11 @@ Completion readiness is a deterministic projection. The Steward or an Agent can 
 
 ## Client-local focus
 
-The shared runtime owns Workspace, Project, Session, Task, Run, policy, Artifact, Claim, and Evidence state.
+The shared runtime owns Workspace, Project, Session, Task, Run, policy, Capability catalog, Artifact, Claim, and Evidence state.
 
 Each Client owns its current focus and viewport.
 
-```text
-Terminal A → Root Run
-Terminal B → Verifier Run
-Web Client → Scout Run
-```
-
-Changing focus must not change execution, authority, scheduling, the Root Run, or another Client.
+Changing focus must not change execution, authority, Capability selection, scheduling, the Root Run, or another Client.
 
 ## External-adapter boundary
 
@@ -345,18 +474,23 @@ An adapter owns:
 - external identifier mappings;
 - message and event translation;
 - protocol metadata;
-- representation-loss disclosures.
+- representation-loss disclosures;
+- registration of its implementations and availability observations.
 
 An adapter does not own:
 
 - Kiln Session, Task, or Run identity;
+- model-facing Tool identity;
 - Capability grants;
 - Repository trust or Privacy policy;
+- implementation selection policy;
 - Evidence freshness;
 - completion readiness;
 - canonical domain events.
 
-ACP, MCP, LSP, A2A, AG-UI, AHP, provider APIs, and other protocols are examples of adapter concerns. Their inclusion here does not accept their implementation or roadmap position.
+ACP, MCP, LSP, A2A, AG-UI, AHP, provider APIs, and other protocols are adapter concerns. Their inclusion here does not accept their implementation or roadmap position.
+
+MCP is a protocol boundary, not a security sandbox. Raw LSP stays behind semantic operations. Browser automation remains a fallback unless browser behavior is under test.
 
 ## Source authority
 
@@ -366,8 +500,9 @@ ACP, MCP, LSP, A2A, AG-UI, AHP, provider APIs, and other protocols are examples 
 - SQLite owns durable Kiln events and rebuildable state projections.
 - Git owns committed source history and branch identity.
 - The filesystem owns current working Artifacts.
-- Environment observations own current execution-environment facts.
+- Environment and availability observations own current execution facts.
 - Capability policy and grants own authority.
+- ADR 0008 and Capability Integration own default implementation selection policy.
 - Evidence records and freshness rules own verification status.
 - The transcript is a projection, not the canonical Session or Run record.
 - Client focus is interface state, not shared truth.
@@ -389,10 +524,19 @@ The first vertical slice should prove:
 8. append-oriented events;
 9. one minimal Context manifest;
 10. one scoped Capability grant;
-11. one supervised Command Tool call;
-12. one Artifact and Claim;
-13. one Evidence record bound to Repository state;
-14. one Checkpoint;
-15. one command-line projection.
+11. one native Repository Capability registration;
+12. one Git CLI Capability registration;
+13. one verification CLI Capability registration;
+14. availability observation and phase filtering;
+15. deterministic implementation selection;
+16. one duplicate replacement group;
+17. one supervised Command Tool call;
+18. bounded result normalization and large-result Artifact storage;
+19. one Artifact and Claim;
+20. one Evidence record bound to Repository state;
+21. Trace and Receipt references for material Capability use;
+22. one authorized fallback or explicit unavailable result;
+23. one Checkpoint;
+24. one command-line projection.
 
-Do not start with a provider, Agent protocol, Child Run, TUI framework, or broad adapter surface.
+Do not start with a provider, Agent protocol, Child Run, MCP server, remote API, browser automation, TUI framework, dynamic discovery, or broad adapter surface.
