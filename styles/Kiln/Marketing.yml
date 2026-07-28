@@ -1,0 +1,13 @@
+extends: existence
+message: "Replace '%s' with a measurable property or remove it."
+level: error
+ignorecase: true
+tokens:
+  - robust
+  - seamless
+  - comprehensive
+  - scalable
+  - intuitive
+  - production-ready
+  - properly
+  - successfully

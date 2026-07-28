@@ -39,6 +39,22 @@ The first milestone is a local execution kernel that can:
 
 LLM integration follows only after those semantics are trustworthy.
 
+## Work planning
+
+Kiln uses short-lived branches and stable work-package identifiers.
+
+Example:
+
+```text
+Plan:    docs/work/P1-W03-command-supervision.md
+Branch:  work/p1-w03-command-supervision
+PR:      [P1-W03] Add supervised command execution
+Criteria: P1-W03-AC01
+Evidence: P1-W03-E01
+```
+
+See [Branching and work planning](docs/BRANCHING-AND-WORK-PLANNING.md) before planned implementation.
+
 ## Documentation
 
 - [Project provenance](docs/PROJECT-PROVENANCE.md)
@@ -46,7 +62,11 @@ LLM integration follows only after those semantics are trustworthy.
 - [Session model](docs/SESSION-MODEL.md)
 - [Security model](docs/SECURITY-MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Branching and work planning](docs/BRANCHING-AND-WORK-PLANNING.md)
+- [Engineering quality rules](docs/ENGINEERING-QUALITY-RULES.md)
 - [Architecture decisions](docs/decisions/README.md)
+- [Implementation plan template](docs/templates/IMPLEMENTATION-PLAN.md)
+- [ADR template](docs/templates/ADR.md)
 
 ## Development
 
@@ -55,6 +75,7 @@ Kiln targets Elixir 1.20 on Erlang/OTP 28.
 ```bash
 mise install
 mix deps.get
+vale .
 mix format --check-formatted
 mix compile --warnings-as-errors
 mix test

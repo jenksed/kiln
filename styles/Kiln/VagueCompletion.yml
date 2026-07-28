@@ -1,0 +1,10 @@
+extends: existence
+message: "Replace '%s' with an observable result and evidence."
+level: error
+ignorecase: true
+tokens:
+  - works correctly
+  - is handled properly
+  - performs as expected
+  - fully implemented
+  - completely verified

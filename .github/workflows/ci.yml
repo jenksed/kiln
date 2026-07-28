@@ -9,6 +9,24 @@ permissions:
   contents: read
 
 jobs:
+  prose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check prose
+        uses: vale-cli/vale-action@v2.1.1
+        with:
+          fail_on_error: true
+          files: all
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   test:
     runs-on: ubuntu-latest
 

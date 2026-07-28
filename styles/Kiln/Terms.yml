@@ -1,0 +1,12 @@
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: false
+swap:
+  Github: GitHub
+  Javascript: JavaScript
+  Typescript: TypeScript
+  NodeJS: Node.js
+  Nodejs: Node.js
+  Genserver: GenServer
+  Sqlite: SQLite

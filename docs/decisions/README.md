@@ -1,13 +1,19 @@
 # Architecture decision records
 
-Architecture decision records preserve decisions that constrain future implementation.
+**Document type:** Reference
+
+Architecture decision records (ADRs) preserve decisions that constrain future implementation.
+
+Use `docs/templates/ADR.md` for new records. Follow `docs/ENGINEERING-QUALITY-RULES.md`.
 
 ## Status vocabulary
 
+- **Proposed:** under review and not yet binding.
 - **Accepted:** current project constraint.
-- **Provisional:** working direction that may change through implementation evidence.
 - **Superseded:** replaced by a later ADR.
 - **Rejected:** considered and deliberately not chosen.
+
+An accepted ADR MUST NOT be reversed without a superseding ADR.
 
 ## Records
 
