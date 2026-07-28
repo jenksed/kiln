@@ -4,7 +4,7 @@
 
 The roadmap is ordered by proof, not platform ambition.
 
-The current Phase 1 and Phase 2 work-package boundaries require reconciliation after P0-W04. See `docs/PLAN-RECONCILIATION.md`.
+P0-W05 establishes the planning-status baseline. The current Phase 1 and Phase 2 work-package boundaries require reconciliation after P0-W05. See `docs/PLANNING-BASELINE.md` and `docs/PLAN-RECONCILIATION.md`.
 
 ## Work identifiers
 
@@ -21,18 +21,19 @@ Each planned work package MUST follow `docs/BRANCHING-AND-WORK-PLANNING.md`.
 ## Phase 0 — Repository foundation
 
 **ID:** P0  
-**Goal:** establish project identity, constraints, documentation, basic Elixir structure, CI, work governance, coding-agent controls, and foundational execution concepts.
+**Goal:** establish project identity, constraints, documentation, basic Elixir structure, CI, work governance, coding-agent controls, foundational execution concepts, and one reliable planning baseline.
 
 ### Work packages
 
 | ID | Purpose | Branch | Status |
 | --- | --- | --- | --- |
-| P0-W01 | Establish the repository foundation. | `agent/bootstrap-project-foundation` | Draft PR; bootstrap exception |
-| P0-W02 | Define branch-linked planning, evidence rules, templates, and prose linting. | `work/p0-w02-work-governance` | Complete on stacked branch; draft PR |
-| P0-W03 | Add agent-friendly code rules, project invariants, skills, specialist reviewers, and deterministic development checks. | `work/p0-w03-agent-ready-development` | In progress |
-| P0-W04 | Define first-class runs, the navigable run graph, and Project Steward responsibility. | `work/p0-w04-run-graph-stewardship` | In progress |
+| P0-W01 | Establish the repository foundation. | `agent/bootstrap-project-foundation` | Integrated into `main` through pull request 1 |
+| P0-W02 | Define branch-linked planning, evidence rules, templates, and prose linting. | `work/p0-w02-work-governance` | Merged into the P0-W01 branch; not integrated into `main` |
+| P0-W03 | Add agent-friendly code rules, project invariants, skills, specialist reviewers, and deterministic development checks. | `work/p0-w03-agent-ready-development` | Merged into the P0-W02 branch; not integrated into `main` |
+| P0-W04 | Define first-class runs, the navigable run graph, and Project Steward responsibility. | `work/p0-w04-run-graph-stewardship` | Draft pull request 5; implemented but unverified |
+| P0-W05 | Audit planning authority, decisions, conflicts, implementation evidence, and document status. | `work/p0-w05-planning-baseline` | In progress; depends on P0-W04 |
 
-**Exit:** a new coding session can identify the project purpose, non-goals, accepted decisions, invariants, session and run boundaries, Project Steward responsibility, next work package, mutation boundary, acceptance criteria, and required evidence. The session can run one preflight command and one complete quality command.
+**Exit:** a new coding session can identify the project purpose, non-goals, accepted decisions, integration state, invariants, session and run boundaries, Project Steward responsibility, next work package, mutation boundary, acceptance criteria, and required evidence. The session can run one preflight command and one complete quality command.
 
 ## Phase 1 — Local execution kernel
 
@@ -191,7 +192,7 @@ Required:
 
 ## Pending roadmap reconciliation
 
-P0-W04 does not finalize the new proof order.
+P0-W04 and P0-W05 do not finalize the new proof order.
 
 Before P1-W01 implementation begins, reconcile:
 
@@ -200,13 +201,14 @@ Before P1-W01 implementation begins, reconcile:
 - fake-run interface proof;
 - attention and client-focus timing;
 - Project Steward vertical slice;
+- minimum evidence and acceptance state;
 - MiniMax adapter acceptance timing;
 - first read-only child run;
 - independent verifier timing;
 - writing-run isolation;
 - version 0.1 completion scenario.
 
-The required inputs and candidate proof order are recorded in `docs/PLAN-RECONCILIATION.md`.
+The current authorities, conflicts, gaps, and unknowns are recorded in `docs/PLANNING-BASELINE.md`. The candidate proof order remains in `docs/PLAN-RECONCILIATION.md`.
 
 ## Deferred
 

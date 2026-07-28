@@ -15,13 +15,14 @@ Project-local skills and specialist agents help build Kiln. They are not Kiln ru
 Before planned work:
 
 1. run `scripts/agent-preflight`;
-2. read the matching work-package plan in `docs/work/`;
-3. read `docs/PROJECT-INVARIANTS.md`;
-4. read `docs/AGENT-FRIENDLY-CODEBASE.md`;
-5. read `docs/ENGINEERING-QUALITY-RULES.md`;
-6. read `docs/RUN-MODEL.md` and `docs/PROJECT-STEWARDSHIP.md` when the work affects sessions, runs, providers, interfaces, execution, evidence, or recovery;
-7. read applicable architecture and decision records;
-8. inspect current source, tests, Git state, and dependency direction.
+2. read `docs/PLANNING-BASELINE.md` for current authority, status, conflicts, and unknowns;
+3. read the matching work-package plan in `docs/work/`;
+4. read `docs/PROJECT-INVARIANTS.md`;
+5. read `docs/AGENT-FRIENDLY-CODEBASE.md`;
+6. read `docs/ENGINEERING-QUALITY-RULES.md`;
+7. read `docs/RUN-MODEL.md` and `docs/PROJECT-STEWARDSHIP.md` when the work affects sessions, runs, providers, interfaces, execution, evidence, or recovery;
+8. read applicable architecture and decision records;
+9. inspect current source, tests, Git state, and dependency direction.
 
 Use the `kiln-work-package` skill for this sequence.
 
@@ -233,11 +234,12 @@ scripts/check
 ## Documentation rules
 
 - Follow `docs/ENGINEERING-QUALITY-RULES.md`.
+- Use `docs/PLANNING-BASELINE.md` for current document authority and planning status.
 - Give each document one primary purpose.
 - Use Easy Approach to Requirements Syntax (EARS)-compatible requirements when applicable.
 - Use Given-When-Then for behavioral acceptance criteria when applicable.
 - Support material repository claims with current evidence.
 - Do not claim formal ASD-STE100 compliance.
 - Roadmap status must match implementation evidence.
-- Distinguish accepted, provisional, and deferred decisions.
+- Distinguish accepted, integrated, implemented, verified, provisional, and deferred states.
 - Prefer omission over unsupported content.

@@ -58,6 +58,8 @@ The Steward cannot override user authority, policy, repository truth, evidence f
 
 Phase 0 is defining the repository and runtime foundation before implementation begins.
 
+P0-W05 audits the integrated and stacked planning state. Read [Planning baseline](docs/PLANNING-BASELINE.md) before product, architecture, or roadmap work.
+
 The next planning pass must reconcile the current Phase 1 work packages with:
 
 - session and run identity;
@@ -116,6 +118,7 @@ The main coding agent remains the default writer and owns final implementation d
 
 ## Documentation
 
+- [Planning baseline](docs/PLANNING-BASELINE.md)
 - [Project provenance](docs/PROJECT-PROVENANCE.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Session model](docs/SESSION-MODEL.md)
