@@ -236,8 +236,8 @@ P1-S01-D01 user-visible path: start a Session, show Task and Run status, inspect
 
 ### Repository state
 
-- Commit: `d5960492b74abe254db77c7892dcf039d00b30c5`
+- Commit: `e82225836ac25ba0d9cd1da4614ec169f907e01a`
 - Branch: `work/p1-s01-t04-foundation-cli` (confirmed)
 - Diff reviewed: Yes
-- Exact CI run: pending (pushed but no CI yet)
+- Exact CI run: `30514255493`, success (`prose` and `test` checks green) on PR #40
 - Parent slice status after merge: unchanged
