@@ -190,28 +190,38 @@ P1-S01-D01 user-visible path: start a Session, show Task and Run status, inspect
 
 ## Completion record
 
-**Result:** Implemented but unverified
+**Result:** Verified pending CI
 
 ### Acceptance status
 
 | Criterion | Status | Evidence ID | Result |
 | --- | --- | --- | --- |
-| P1-S01-T04-AC01 | Pending | P1-S01-T04-E01 | pending |
-| P1-S01-T04-AC02 | Pending | P1-S01-T04-E02 | pending |
-| P1-S01-T04-AC03 | Pending | P1-S01-T04-E03 | pending |
-| P1-S01-T04-AC04 | Pending | P1-S01-T04-E04 | pending |
-| P1-S01-T04-AC05 | Pending | P1-S01-T04-E05 | pending |
-| P1-S01-T04-AC06 | Pending | P1-S01-T04-E06 | pending |
+| P1-S01-T04-AC01 | passed | P1-S01-T04-E01 | passed |
+| P1-S01-T04-AC02 | passed | P1-S01-T04-E02 | passed |
+| P1-S01-T04-AC03 | passed | P1-S01-T04-E03 | passed |
+| P1-S01-T04-AC04 | passed | P1-S01-T04-E04 | passed |
+| P1-S01-T04-AC05 | passed | P1-S01-T04-E05 | passed |
+| P1-S01-T04-AC06 | passed | P1-S01-T04-E06 | passed |
 
 ### Verification executed
 
 | Command or check | Exit status | Evidence location |
 | --- | --- | --- |
-| pending | pending | pending |
+| `mix format --check-formatted` | 0 | command output; all files formatted |
+| `mix compile --warnings-as-errors` | 0 | command output; no warnings or errors |
+| `mix xref graph --format cycles --label compile-connected --fail-above 0` | 0 | command output; no cycles found |
+| `mix test` | 0 | command output; 194 tests passed |
+| `scripts/test-agent-preflight` | 0 | command output; obsolete preflight fixture passed |
+| `python3 scripts/validate_first_month_contracts.py` | 0 | command output; 10 positive and 11 protected negative fixtures passed |
+| `python3 scripts/validate_json_schema_contracts.py` before environment setup | 1 | command output; pinned `jsonschema` package was not importable |
+| `python3 -m venv .venv && .venv/bin/pip install -r requirements/conformance.txt` | 0 | local virtual environment; `jsonschema==4.26.0` installed |
+| `source .venv/bin/activate && python3 scripts/validate_json_schema_contracts.py` | 0 | command output; 10 positive, 8 Schema-rejected, and 3 semantic-only fixtures passed |
+| `scripts/validate-agent-assets` | 0 | command output; 5 Skills, 3 specialist agents, and 3 prompt templates passed |
+| `source .venv/bin/activate && scripts/check` | 0 | aggregate gate; Vale passed 125 files and 194 tests passed |
 
 ### Demo and slice status
 
-- Ticket demo contribution: Not yet exercised
+- Ticket demo contribution: Demonstrated locally via `mix kiln --help`/`version` and protected fixtures
 - Parent slice gate affected: P1-S01-G08 and G11
 - Slice verification manifest updated: No
 - Slice completion claimed: No
@@ -226,8 +236,8 @@ P1-S01-D01 user-visible path: start a Session, show Task and Run status, inspect
 
 ### Repository state
 
-- Commit: pending
-- Branch: `work/p1-s01-t04-foundation-cli`
-- Diff reviewed: No
-- Exact CI run: pending
+- Commit: `d5960492b74abe254db77c7892dcf039d00b30c5`
+- Branch: `work/p1-s01-t04-foundation-cli` (confirmed)
+- Diff reviewed: Yes
+- Exact CI run: pending (pushed but no CI yet)
 - Parent slice status after merge: unchanged
