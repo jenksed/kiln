@@ -20,6 +20,11 @@ defmodule Kiln.Store.Error do
   layer to leak Domain error types. The class is owned by the Store
   layer; callers consume it through `Kiln.Store.Error{}` and translate
   to their public vocabulary at their own boundary.
+
+  P1-S02-T01 adds `:artifact` and `:evidence` classes for content-addressed
+  Artifact persistence and typed Evidence construction. Both are bounded
+  vocabulary extensions; they do not introduce processes, registries, or
+  capability surfaces.
   """
 
   @classes [
@@ -30,6 +35,8 @@ defmodule Kiln.Store.Error do
     :revision,
     :idempotency_conflict,
     :precondition,
+    :artifact,
+    :evidence,
     :io,
     :unknown
   ]
@@ -45,6 +52,8 @@ defmodule Kiln.Store.Error do
           | :revision
           | :idempotency_conflict
           | :precondition
+          | :artifact
+          | :evidence
           | :io
           | :unknown
 
