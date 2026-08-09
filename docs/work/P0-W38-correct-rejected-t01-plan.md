@@ -183,7 +183,7 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 
 ## Completion record
 
-**Result:** Corrected T01 governance contract proposed and amended after blocking review. No T01 plan acceptance or P1-S02 implementation authorization was granted, PR #48 remains rejected, and no runtime path changed. Fresh exact-head CI is required for the amendment before PR readiness.
+**Result:** Corrected T01 governance contract proposed, amended after blocking review, and verified at the exact amendment head. No T01 plan acceptance or P1-S02 implementation authorization was granted, PR #48 remains rejected, and no runtime path changed.
 
 ### Verified Repository state
 
@@ -192,11 +192,14 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 - Pull request: PR #53.
 - Governance enforcement head: `53c6562fa4c4febd6f28fe8927352101e8a6832f`.
 - Initial governance CI: runs `31311303234` and `31311421953`, success at the pre-review heads.
+- Review-correction head: `cf34adcb97d1cb4483d286abeb77939f6d820fb4`.
+- Review-correction exact-head CI: run `31315585161`, success.
+- Corrected T01 plan SHA-256: `ae468ff2656c753c908aaddc44a2285b32def044feab52201fa4a5d26f6fe176`.
 - Rejected PR #48 head: `7ba158bddff76ade9aca79cb8501e675bd0cded9`.
 - Active T01 authorization record: absent.
 - Corrected T01 lifecycle: Proposed, not Accepted.
 - Runtime-path diff: empty.
-- Review-correction commit: governance-only and must receive fresh full CI before a final closeout Evidence commit.
+- Final closeout commit: governance-only and must receive fresh full CI before PR readiness.
 
 ### Acceptance status
 
@@ -207,7 +210,7 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 | P0-W38-AC03 | Pass | P0-W38-E03 | four accepted freshness rules, absent TTL, result/completeness, and plural Artifact association have application and SQLite boundaries |
 | P0-W38-AC04 | Pass | P0-W38-E04 | public Artifact write API is exactly `put/2(ready_store, PutRequest)` |
 | P0-W38-AC05 | Pass | P0-W38-E05 | eight changed files are governance-only; authorization absent; runtime compare empty |
-| P0-W38-AC06 | Pending | P0-W38-E06 | fresh exact-head CI is required after the review correction |
+| P0-W38-AC06 | Pass | P0-W38-E06 | local contract checks and exact review-correction CI run `31315585161` passed |
 | P0-W38-AC07 | Pass | P0-W38-E07 | persistent identity, unseen-key admission, read, replay ordering, and pure currentness are separate |
 | P0-W38-AC08 | Pass | P0-W38-E08 | Artifact and metadata limits are numeric with exact overflow behavior |
 | P0-W38-AC09 | Pass | P0-W38-E09 | P0-W24 and active first-month conformance fields are explicitly preserved and mapped |
@@ -219,14 +222,14 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 - **P0-W38-E03:** the plan permits exactly P0-W24's four state-based freshness rules, has no TTL field or column, requires plural foreign-key and Artifact integrity checks, and defines direct-SQL negative fixtures and per-migration rollback.
 - **P0-W38-E04:** the plan defines only `Kiln.Artifact.Store.put/2(ready_store, %Kiln.Artifact.PutRequest{})` for writing, adds read-only `fetch/2`, names a fresh replacement implementation branch, and forbids reuse of the rejected branch.
 - **P0-W38-E05:** the compare from `f9b5a312…` contains `AGENTS.md`, README, six governance/planning documents, and no `lib/`, `test/`, `priv/`, `config/`, `mix.exs`, or `mix.lock` path. `docs/authorizations/P1-S02-T01.authorization` remains absent.
-- **P0-W38-E06:** initial local and exact-head validation passed at the pre-review heads. The review correction must rerun the same local suite and receive fresh full CI before this Evidence returns to Pass.
+- **P0-W38-E06:** review-correction head `cf34adcb…` passed local preflight, detached preflight regression, semantic validation, pinned JSON Schema validation, agent assets, diff and authority checks. Exact-head CI run `31315585161` additionally passed Vale, formatting, warnings-as-errors compilation, compile-connected cycle checks, all tests, the P1-S01 aggregate gate, and prose validation.
 - **P0-W38-E07:** Evidence persistent request identity excludes admission and later currentness contexts; exact replay is integrity-checked before unseen-key admission, and `fetch/2` plus pure `Currentness.evaluate/2` re-evaluate historical records without writes.
 - **P0-W38-E08:** the T01 bounds table fixes a 16,777,216-byte Artifact maximum, 65,536-byte canonical requests, and explicit identifier, media-type, warning, rationale, association, and currentness limits. Overflow is rejected without silent T01 truncation.
 - **P0-W38-E09:** the corrected plan states that it does not supersede P0-W24 or the active first-month Schema and defines exact canonical mappings for subject, Repository, host/environment, Command result, plural Artifacts, freshness, completeness, contradiction, invalidation, status, and record digest.
 
 ### Failures and warnings
 
-- Local dependency-backed compile, xref, and test execution was unavailable because the environment denied the Hex network action. Exact-head CI supplied passing results for all three checks.
+- The fresh workspace did not expose Vale or the pinned Elixir/Mix runtime locally. Exact review-correction CI supplied passing prose, formatting, compile, xref, and test results.
 - `scripts/test-agent-preflight` has a historical final source-root assertion fixed to the W34 branch name. It passes in the CI-style detached checkout but cannot pass from a named W38 checkout. This governance-only package does not modify that development-tool path.
 
 ### Required next action
