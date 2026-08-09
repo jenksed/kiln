@@ -162,18 +162,45 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 
 ## Completion record
 
-**Result:** In progress; completion Evidence will be recorded after the exact committed governance state passes validation.
+**Result:** Corrected T01 governance contract proposed and verified. No T01 plan acceptance or P1-S02 implementation authorization was granted, PR #48 remains rejected, and no runtime path changed.
+
+### Verified Repository state
+
+- Base: `f9b5a312ac31ee4015025a87bcd3cec199b12297`.
+- Branch: `work/p0-w38-correct-rejected-t01-plan`.
+- Pull request: PR #53.
+- Governance enforcement head: `53c6562fa4c4febd6f28fe8927352101e8a6832f`.
+- Exact-head CI: run `31311303234`, success.
+- Rejected PR #48 head: `7ba158bddff76ade9aca79cb8501e675bd0cded9`.
+- Active T01 authorization record: absent.
+- Corrected T01 lifecycle: Proposed, not Accepted.
+- Runtime-path diff: empty.
+- Final closeout commit: documentation-only and must receive fresh full CI before integration.
 
 ### Acceptance status
 
 | Criterion | Status | Evidence ID | Result |
 | --- | --- | --- | --- |
-| P0-W38-AC01 | Pending | P0-W38-E01 | pending final compare |
-| P0-W38-AC02 | Pending | P0-W38-E02 | pending final compare |
-| P0-W38-AC03 | Pending | P0-W38-E03 | pending final compare |
-| P0-W38-AC04 | Pending | P0-W38-E04 | pending final compare |
-| P0-W38-AC05 | Pending | P0-W38-E05 | pending final diff |
-| P0-W38-AC06 | Pending | P0-W38-E06 | pending exact-head validation |
+| P0-W38-AC01 | Pass | P0-W38-E01 | result and owned durable persistence contracts are explicit |
+| P0-W38-AC02 | Pass | P0-W38-E02 | four protected classifications have exact semantics, effects, failures, and tests |
+| P0-W38-AC03 | Pass | P0-W38-E03 | TTL, result/completeness, and Artifact association have application and SQLite boundaries |
+| P0-W38-AC04 | Pass | P0-W38-E04 | public Artifact write API is exactly `put/2(ready_store, PutRequest)` |
+| P0-W38-AC05 | Pass | P0-W38-E05 | eight changed files are governance-only; authorization absent; runtime compare empty |
+| P0-W38-AC06 | Pass | P0-W38-E06 | local available checks and exact-head CI run `31311303234` passed |
+
+### Completion Evidence
+
+- **P0-W38-E01:** the corrected T01 plan requires `result: pass | fail | blocked | unknown`, assigns `Kiln.Evidence.Store.record/2` durable ownership, and separates immutable Evidence from later criterion evaluation.
+- **P0-W38-E02:** contradiction preserves both valid observations; stale rejects a new mismatched binding without erasing history; truthful incomplete non-pass may persist while incomplete pass cannot; integrity rolls back the Evidence transaction.
+- **P0-W38-E03:** the plan requires a strictly bounded time TTL, `NULL` for non-time rules, foreign-key and Artifact integrity checks, direct-SQL negative fixtures, and per-migration rollback.
+- **P0-W38-E04:** the plan defines only `Kiln.Artifact.Store.put/2(ready_store, %Kiln.Artifact.PutRequest{})`; a fresh replacement implementation branch is named and the rejected branch cannot be reused.
+- **P0-W38-E05:** the compare from `f9b5a312…` contains `AGENTS.md`, README, six governance/planning documents, and no `lib/`, `test/`, `priv/`, `config/`, `mix.exs`, or `mix.lock` path. `docs/authorizations/P1-S02-T01.authorization` remains absent.
+- **P0-W38-E06:** local W38 preflight, detached preflight regression, semantic validator, pinned JSON Schema validator, agent assets, Vale 3.14.2, Mix formatting, diff check, and authority scans passed. CI run `31311303234` additionally passed dependency installation, warnings-as-errors compilation, compile-connected cycle checks, all tests, the P1-S01 aggregate gate, and prose validation.
+
+### Failures and warnings
+
+- Local dependency-backed compile, xref, and test execution was unavailable because the environment denied the Hex network action. Exact-head CI supplied passing results for all three checks.
+- `scripts/test-agent-preflight` has a historical final source-root assertion fixed to the W34 branch name. It passes in the CI-style detached checkout but cannot pass from a named W38 checkout. This governance-only package does not modify that development-tool path.
 
 ### Required next action
 
