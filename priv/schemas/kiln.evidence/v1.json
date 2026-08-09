@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiln.local/schemas/kiln.evidence/v1.json",
+  "title": "Kiln Evidence (v1)",
+  "description": "Typed Evidence construction. evidence_id is the lowercase hex SHA-256 digest over the canonical bytes of this struct (schema-bound). The struct is the canonical source of identity; the digest is what the store records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subject_id",
+    "subject_kind",
+    "subject_state_digest",
+    "producer_kind",
+    "producer_id",
+    "method",
+    "freshness_class",
+    "freshness_ttl_seconds",
+    "completeness_class",
+    "observed_at",
+    "recorded_at",
+    "artifact_id",
+    "schema"
+  ],
+  "properties": {
+    "subject_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_kind": {
+      "type": "string",
+      "enum": ["session", "run", "operation", "patch", "command", "artifact", "evidence", "repository"]
+    },
+    "subject_state_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "producer_kind": {
+      "type": "string",
+      "enum": ["command", "provider", "pack", "patch", "script", "internal"]
+    },
+    "producer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "type": "string",
+      "enum": ["observed", "derived", "computed", "reported"]
+    },
+    "freshness_class": {
+      "type": "string",
+      "enum": ["transient", "stable", "durable"]
+    },
+    "freshness_ttl_seconds": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "completeness_class": {
+      "type": "string",
+      "enum": ["complete", "partial", "incomplete"]
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "minLength": 1
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "minLength": 1
+    },
+    "artifact_id": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "schema": {
+      "const": "kiln.evidence/v1"
+    }
+  }
+}

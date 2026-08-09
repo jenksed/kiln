@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiln.local/schemas/kiln.artifact/v1.json",
+  "title": "Kiln Artifact (v1)",
+  "description": "Bounded vocabulary, content-addressed, immutable Artifact row. The artifact_id is the lowercase hex SHA-256 digest over the canonical bytes of the row's content BLOB, with the sha256: scheme prefix. The row is the canonical source for everything except the content blob itself; the digest is what binds identity to bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "byte_size",
+    "content_kind",
+    "encoding",
+    "media_type",
+    "retention_class",
+    "producer_kind",
+    "producer_id",
+    "recorded_at",
+    "source_digest",
+    "schema",
+    "content"
+  ],
+  "properties": {
+    "byte_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "content_kind": {
+      "type": "string",
+      "enum": ["text", "json", "binary", "unstructured"]
+    },
+    "encoding": {
+      "type": "string",
+      "enum": ["utf_8", "utf_8_bom"]
+    },
+    "media_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retention_class": {
+      "type": "string",
+      "enum": ["transient", "durable"]
+    },
+    "producer_kind": {
+      "type": "string",
+      "enum": ["command", "provider", "pack", "patch", "script", "internal"]
+    },
+    "producer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "minLength": 1
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "schema": {
+      "const": "kiln.artifact/v1"
+    },
+    "content": {
+      "type": "string",
+      "description": "Canonical byte encoding of the artifact payload as a binary string. Same bytes => same artifact_id.",
+      "minLength": 0
+    }
+  }
+}
