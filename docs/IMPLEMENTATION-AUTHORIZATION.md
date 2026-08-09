@@ -39,7 +39,7 @@ Planning work under `work/p<phase>-w<work>-*` can create or amend proposed imple
 - PR #48 was rejected and closed without merge after exact-state CI run `31294035484`.
 - Candidate commit `60367874bfc3c0e6d8cbd736f58e1ae17938943b` remains premature pre-authorization work; the adjudication never rewrote its history.
 - The active T01 authorization record is removed. Every P1-S02 ticket and the aggregate slice are unauthorized.
-- P0-W38 proposes corrected T01 Evidence/result, persistence, protected-classification, TTL, identity, transaction, idempotency, migration, and API contracts. The proposal is not accepted and has no matching authorization record.
+- P0-W38 proposes corrected T01 Evidence/result, accepted binding and conformance projection, persistence, protected-classification, state-based freshness, identity, transaction, replay/currentness, numeric bounds, migration, and API contracts. It preserves P0-W24 and adds no time-based freshness. The proposal is not accepted and has no matching authorization record.
 - After P0-W38 integrates, the next legitimate action is an explicit owner decision to accept, revise, or reject the corrected plan. Acceptance alone still does not authorize implementation.
 
 Authorization is effective only while the exact record and accepted plan remain active at trusted canonical `main` and unchanged in the explicit implementation commit. Revocation or supersession requires a governance change that updates or removes the trusted record before further implementation proceeds.

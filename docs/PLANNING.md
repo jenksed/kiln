@@ -150,4 +150,4 @@ Wave B then still requires Prompt 6-B, Prompt 7-B, and Prompt 8-B before delegat
 
 ## Exact next action
 
-P1-S01 integration and authority enforcement are complete. PR #48 was rejected. P0-W38 proposes a corrected T01 Evidence/result, persistence, protected-classification, TTL, identity, transaction, idempotency, migration, and API contract. After P0-W38 integrates, seek an explicit owner decision on that proposal. Do not accept it implicitly, create an authorization record, restore PR #48, or implement any P1-S02 ticket.
+P1-S01 integration and authority enforcement are complete. PR #48 was rejected. P0-W38 proposes a corrected T01 Evidence/result, accepted binding and conformance projection, persistence, protected-classification, state-based freshness, identity, transaction, replay/currentness, numeric bounds, migration, and API contract. It preserves P0-W24 and does not add time-based freshness. After P0-W38 integrates, seek an explicit owner decision on that proposal. Do not accept it implicitly, create an authorization record, restore PR #48, or implement any P1-S02 ticket.

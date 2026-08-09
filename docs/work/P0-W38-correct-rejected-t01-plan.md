@@ -8,7 +8,7 @@
 
 ## Objective
 
-Replace the rejected P1-S02-T01 contract with one coherent proposed plan that resolves its Evidence-result, persistence, protected-classification, TTL, and Artifact-API defects while preserving PR #48 as rejected history, changing no Kiln runtime path, and granting no implementation authority.
+Replace the rejected P1-S02-T01 contract with one coherent proposed plan that resolves its Evidence-result, persistence, protected-classification, freshness-boundary, Artifact-API, accepted-authority reconciliation, currentness, and bounds defects while preserving PR #48 as rejected history, changing no Kiln runtime path, and granting no implementation authority.
 
 ## Observed current state
 
@@ -38,14 +38,16 @@ Replace the rejected P1-S02-T01 contract with one coherent proposed plan that re
 ## Requirements
 
 - **P0-W38-R01:** Correct the T01 plan as a complete domain and persistence contract, not as five isolated sentence edits.
-- **P0-W38-R02:** Define one explicit Evidence result field and bounded vocabulary consistent with first-month Evidence authority.
+- **P0-W38-R02:** Define one explicit Evidence result field and preserve P0-W24's subject, Repository, host/environment, Command-result, plural Artifact, freshness, completeness, and contradiction contract through an exact canonical record-plus-view representation.
 - **P0-W38-R03:** Define the runtime owner and durable path for Artifact bytes, Artifact metadata, and Evidence records.
 - **P0-W38-R04:** Define contradiction, stale, incomplete, and integrity semantics, persistence effects, atomic failure behavior, and deterministic acceptance tests.
-- **P0-W38-R05:** Enforce freshness TTL shape in application validation and SQLite constraints, including direct SQL writes.
+- **P0-W38-R05:** Reconcile the rejected candidate's invalid TTL behavior by preserving P0-W24's four state-based freshness rules, forbidding `time_bound` and TTL persistence, and testing application and direct SQL rejection.
 - **P0-W38-R06:** Resolve the Artifact public write API to exactly `Kiln.Artifact.Store.put/2` and define both arguments.
-- **P0-W38-R07:** Reconcile identity, association, transaction ownership, idempotency, migrations, rollback, schemas, canonical bytes, and completion Evidence.
+- **P0-W38-R07:** Reconcile identity, plural association, transaction ownership, idempotency, migrations, rollback, schemas, canonical bytes, P0-W24, the active conformance projection, and completion Evidence.
 - **P0-W38-R08:** Preserve the distinction between proposed planning, owner acceptance, implementation authorization, implementation, verification, and acceptance.
 - **P0-W38-R09:** Change no runtime source, test, migration, schema, dependency, or configuration path.
+- **P0-W38-R10:** Separate persistent Evidence request identity and unseen-key admission from pure currentness re-evaluation, with exact replay ordering and an integrity-checked read API.
+- **P0-W38-R11:** Fix numeric Artifact and metadata bounds, direct-persistence enforcement, and deterministic no-truncation overflow behavior.
 
 ## Security boundary
 
@@ -70,10 +72,11 @@ Authority inputs are canonical `origin/main`, the accepted authority order in `A
 ## Proposed changes
 
 1. Rewrite the existing T01 plan as a proposed replacement contract while retaining the exact PR #48 rejection history.
-2. Define exact Artifact and Evidence records, persistence ownership, byte placement, API signatures, transaction boundaries, idempotency, and migration behavior.
+2. Define exact Artifact and Evidence records, accepted binding projection, persistence ownership, byte placement, API signatures, transaction boundaries, replay ordering, pure currentness, and migration behavior.
 3. Define protected outcomes and their durable effects so a false pass or dangling Evidence association cannot commit.
-4. Synchronize current authority documents to say that the correction is proposed, owner acceptance is pending, and no implementation is authorized.
-5. Record deterministic validation and an empty runtime-path diff in this plan's completion record.
+4. Fix Artifact and metadata limits plus exact overflow behavior at application and applicable database boundaries.
+5. Synchronize current authority documents to say that the correction is proposed, owner acceptance is pending, and no implementation is authorized.
+6. Record deterministic validation and an empty runtime-path diff in this plan's completion record.
 
 ## Expected files or components
 
@@ -93,7 +96,7 @@ Authority inputs are canonical `origin/main`, the accepted authority order in `A
 - **P0-W38-AC01**
   - **Given** PR #48's five blocking findings and accepted Evidence authority;
   - **When** the corrected T01 plan is reviewed;
-  - **Then** Evidence has one explicit result vocabulary and a real owned persistence path.
+  - **Then** Evidence has one explicit result vocabulary, a real owned persistence path, every accepted P0-W24 binding, and an exact record-plus-currentness projection into the active first-month Schema.
   - **Evidence:** T01 requirements, record shapes, APIs, and acceptance criteria.
 - **P0-W38-AC02**
   - **Given** contradiction, stale, incomplete, and integrity cases;
@@ -102,8 +105,8 @@ Authority inputs are canonical `origin/main`, the accepted authority order in `A
   - **Evidence:** T01 protected-classification contract and AC08 through AC11.
 - **P0-W38-AC03**
   - **Given** application and direct-SQL persistence paths;
-  - **When** TTL and association constraints are reviewed;
-  - **Then** invalid rule/TTL pairs, negative or zero TTLs, and missing Artifact references cannot commit.
+  - **When** freshness and association constraints are reviewed;
+  - **Then** only the four accepted state-based rules can commit, no TTL has a durable representation, and missing Artifact references cannot commit.
   - **Evidence:** T01 migration contract and AC06, AC09, and AC11.
 - **P0-W38-AC04**
   - **Given** the corrected public API;
@@ -120,6 +123,21 @@ Authority inputs are canonical `origin/main`, the accepted authority order in `A
   - **When** the complete governance validation suite runs;
   - **Then** every applicable deterministic check passes.
   - **Evidence:** command results and exact-head CI.
+- **P0-W38-AC07**
+  - **Given** an exact Evidence retry after Repository, host, Command, Artifact, or invalidation state changes;
+  - **When** the persistence and currentness contracts are reviewed;
+  - **Then** persistent identity replays before unseen-key admission and `Currentness.evaluate/2` reports the changed applicability without a write or idempotency conflict.
+  - **Evidence:** T01 APIs, idempotency ordering, and AC07 through AC09.
+- **P0-W38-AC08**
+  - **Given** Artifact bytes and all security-relevant metadata at their limit and one unit over;
+  - **When** the application and direct-persistence boundaries are reviewed;
+  - **Then** every limit is numeric, byte-based where applicable, and paired with exact rejection or explicit upstream truncation behavior.
+  - **Evidence:** T01 bounds table, migration contract, and AC13.
+- **P0-W38-AC09**
+  - **Given** P0-W24 and the active first-month conformance Schema;
+  - **When** the corrected T01 representation is compared field by field;
+  - **Then** T01 explicitly preserves and maps the accepted contract and does not silently supersede it.
+  - **Evidence:** T01 canonical Evidence-view mapping and AC05.
 
 ## Deterministic verification
 
@@ -147,10 +165,13 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 | --- | --- | --- |
 | P0-W38-E01 | P0-W38-AC01 | corrected result and persistence contract compare |
 | P0-W38-E02 | P0-W38-AC02 | protected-classification matrix compare |
-| P0-W38-E03 | P0-W38-AC03 | TTL, foreign-key, and direct-SQL constraint contract compare |
+| P0-W38-E03 | P0-W38-AC03 | accepted freshness vocabulary, absent TTL, plural foreign-key, and direct-SQL constraint compare |
 | P0-W38-E04 | P0-W38-AC04 | exact `put/2` signature and argument contract |
 | P0-W38-E05 | P0-W38-AC05 | authority scan, absent authorization record, and empty runtime-path diff |
 | P0-W38-E06 | P0-W38-AC06 | full local validation and exact-head CI |
+| P0-W38-E07 | P0-W38-AC07 | persistent-identity, replay-order, read, and pure-currentness contract compare |
+| P0-W38-E08 | P0-W38-AC08 | numeric bounds, byte semantics, direct-persistence, and overflow contract compare |
+| P0-W38-E09 | P0-W38-AC09 | P0-W24 and active conformance field-by-field reconciliation |
 
 ## Explicit exclusions
 
@@ -162,7 +183,7 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 
 ## Completion record
 
-**Result:** Corrected T01 governance contract proposed and verified. No T01 plan acceptance or P1-S02 implementation authorization was granted, PR #48 remains rejected, and no runtime path changed.
+**Result:** Corrected T01 governance contract proposed and amended after blocking review. No T01 plan acceptance or P1-S02 implementation authorization was granted, PR #48 remains rejected, and no runtime path changed. Fresh exact-head CI is required for the amendment before PR readiness.
 
 ### Verified Repository state
 
@@ -170,32 +191,38 @@ Every command must exit `0`. The runtime-path diff command must print no path.
 - Branch: `work/p0-w38-correct-rejected-t01-plan`.
 - Pull request: PR #53.
 - Governance enforcement head: `53c6562fa4c4febd6f28fe8927352101e8a6832f`.
-- Exact-head CI: run `31311303234`, success.
+- Initial governance CI: runs `31311303234` and `31311421953`, success at the pre-review heads.
 - Rejected PR #48 head: `7ba158bddff76ade9aca79cb8501e675bd0cded9`.
 - Active T01 authorization record: absent.
 - Corrected T01 lifecycle: Proposed, not Accepted.
 - Runtime-path diff: empty.
-- Final closeout commit: documentation-only and must receive fresh full CI before integration.
+- Review-correction commit: governance-only and must receive fresh full CI before a final closeout Evidence commit.
 
 ### Acceptance status
 
 | Criterion | Status | Evidence ID | Result |
 | --- | --- | --- | --- |
-| P0-W38-AC01 | Pass | P0-W38-E01 | result and owned durable persistence contracts are explicit |
+| P0-W38-AC01 | Pass | P0-W38-E01 | result, accepted bindings, conformance projection, and owned durable persistence are explicit |
 | P0-W38-AC02 | Pass | P0-W38-E02 | four protected classifications have exact semantics, effects, failures, and tests |
-| P0-W38-AC03 | Pass | P0-W38-E03 | TTL, result/completeness, and Artifact association have application and SQLite boundaries |
+| P0-W38-AC03 | Pass | P0-W38-E03 | four accepted freshness rules, absent TTL, result/completeness, and plural Artifact association have application and SQLite boundaries |
 | P0-W38-AC04 | Pass | P0-W38-E04 | public Artifact write API is exactly `put/2(ready_store, PutRequest)` |
 | P0-W38-AC05 | Pass | P0-W38-E05 | eight changed files are governance-only; authorization absent; runtime compare empty |
-| P0-W38-AC06 | Pass | P0-W38-E06 | local available checks and exact-head CI run `31311303234` passed |
+| P0-W38-AC06 | Pending | P0-W38-E06 | fresh exact-head CI is required after the review correction |
+| P0-W38-AC07 | Pass | P0-W38-E07 | persistent identity, unseen-key admission, read, replay ordering, and pure currentness are separate |
+| P0-W38-AC08 | Pass | P0-W38-E08 | Artifact and metadata limits are numeric with exact overflow behavior |
+| P0-W38-AC09 | Pass | P0-W38-E09 | P0-W24 and active first-month conformance fields are explicitly preserved and mapped |
 
 ### Completion Evidence
 
-- **P0-W38-E01:** the corrected T01 plan requires `result: pass | fail | blocked | unknown`, assigns `Kiln.Evidence.Store.record/2` durable ownership, and separates immutable Evidence from later criterion evaluation.
-- **P0-W38-E02:** contradiction preserves both valid observations; stale rejects a new mismatched binding without erasing history; truthful incomplete non-pass may persist while incomplete pass cannot; integrity rolls back the Evidence transaction.
-- **P0-W38-E03:** the plan requires a strictly bounded time TTL, `NULL` for non-time rules, foreign-key and Artifact integrity checks, direct-SQL negative fixtures, and per-migration rollback.
-- **P0-W38-E04:** the plan defines only `Kiln.Artifact.Store.put/2(ready_store, %Kiln.Artifact.PutRequest{})`; a fresh replacement implementation branch is named and the rejected branch cannot be reused.
+- **P0-W38-E01:** the corrected T01 plan requires `result: pass | fail | blocked | unknown`, assigns `Kiln.Evidence.Store.record/2` durable ownership, preserves Repository, host/environment, Command-result, plural Artifact, freshness, completeness, and contradiction bindings, and maps immutable storage plus pure currentness into the accepted Evidence item.
+- **P0-W38-E02:** contradiction preserves all valid observations and is derived across current peers; stale admission rejects an unseen mismatched record while pure currentness reports an old record stale without mutation; truthful incomplete `blocked` or `unknown` may persist while incomplete `pass` or `fail` cannot; integrity rolls back the Evidence transaction.
+- **P0-W38-E03:** the plan permits exactly P0-W24's four state-based freshness rules, has no TTL field or column, requires plural foreign-key and Artifact integrity checks, and defines direct-SQL negative fixtures and per-migration rollback.
+- **P0-W38-E04:** the plan defines only `Kiln.Artifact.Store.put/2(ready_store, %Kiln.Artifact.PutRequest{})` for writing, adds read-only `fetch/2`, names a fresh replacement implementation branch, and forbids reuse of the rejected branch.
 - **P0-W38-E05:** the compare from `f9b5a312…` contains `AGENTS.md`, README, six governance/planning documents, and no `lib/`, `test/`, `priv/`, `config/`, `mix.exs`, or `mix.lock` path. `docs/authorizations/P1-S02-T01.authorization` remains absent.
-- **P0-W38-E06:** local W38 preflight, detached preflight regression, semantic validator, pinned JSON Schema validator, agent assets, Vale 3.14.2, Mix formatting, diff check, and authority scans passed. CI run `31311303234` additionally passed dependency installation, warnings-as-errors compilation, compile-connected cycle checks, all tests, the P1-S01 aggregate gate, and prose validation.
+- **P0-W38-E06:** initial local and exact-head validation passed at the pre-review heads. The review correction must rerun the same local suite and receive fresh full CI before this Evidence returns to Pass.
+- **P0-W38-E07:** Evidence persistent request identity excludes admission and later currentness contexts; exact replay is integrity-checked before unseen-key admission, and `fetch/2` plus pure `Currentness.evaluate/2` re-evaluate historical records without writes.
+- **P0-W38-E08:** the T01 bounds table fixes a 16,777,216-byte Artifact maximum, 65,536-byte canonical requests, and explicit identifier, media-type, warning, rationale, association, and currentness limits. Overflow is rejected without silent T01 truncation.
+- **P0-W38-E09:** the corrected plan states that it does not supersede P0-W24 or the active first-month Schema and defines exact canonical mappings for subject, Repository, host/environment, Command result, plural Artifacts, freshness, completeness, contradiction, invalidation, status, and record digest.
 
 ### Failures and warnings
 
