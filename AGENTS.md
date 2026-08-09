@@ -39,6 +39,8 @@ P1-S01 and its T01, T02, T03, T06, T04, and T05 tickets are integrated at `db021
 
 PR #48 candidate commit `60367874bfc3c0e6d8cbd736f58e1ae17938943b` was premature. Its correctly authorized adjudication state `7ba158bddff76ade9aca79cb8501e675bd0cded9` passed CI but failed technical acceptance and the PR was closed without merge. The consumed authorization is removed; do not continue or recreate T01 runtime work until a corrected plan is accepted and newly authorized.
 
+P0-W38 proposes a corrected T01 plan at the existing governing path. The proposal does not accept the plan, create an authorization record, restore PR #48, or permit runtime work. After P0-W38 integrates, the exact next decision is owner adjudication of that corrected plan.
+
 Follow `docs/ROADMAP.md`, the current accepted ticket plan, and exact prerequisite Evidence to determine whether any further P1-S02 ticket may proceed.
 
 ## Required start sequence

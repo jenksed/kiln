@@ -265,7 +265,7 @@ Kiln is not:
 
 ## Current implementation status
 
-P1-S01 — Durable single-Run foundation is integrated at `db02198` via PR #46 (closeout SHA `5792ffdd3af6c45f07e07b8334ce150ad642495b`, evidence SHA `444c5a5`, hardening SHA `c872c16`, slice closeout SHA `a4ea5f9`). The final P1-S01-V01 manifest was recorded at the ignored local path `artifacts/p1-s01/slice-01-5792ffdd3af6c45f07e07b8334ce150ad642495b.json` with `overall: pass` and 18 components passing on the accepted OD-02 owner-machine. Its documented digest preserves provenance, but the owner-machine file is not currently retrievable from a fresh checkout; see `artifacts/p1-s01/README.md`. PR #48 was adjudicated and rejected; no P1-S02 ticket is currently authorized. See `docs/IMPLEMENTATION-AUTHORIZATION.md`.
+P1-S01 — Durable single-Run foundation is integrated at `db02198` via PR #46 (closeout SHA `5792ffdd3af6c45f07e07b8334ce150ad642495b`, evidence SHA `444c5a5`, hardening SHA `c872c16`, slice closeout SHA `a4ea5f9`). The final P1-S01-V01 manifest was recorded at the ignored local path `artifacts/p1-s01/slice-01-5792ffdd3af6c45f07e07b8334ce150ad642495b.json` with `overall: pass` and 18 components passing on the accepted OD-02 owner-machine. Its documented digest preserves provenance, but the owner-machine file is not currently retrievable from a fresh checkout; see `artifacts/p1-s01/README.md`. PR #48 was adjudicated and rejected. P0-W38 proposes a corrected T01 plan for owner adjudication; no P1-S02 ticket is currently authorized. See `docs/IMPLEMENTATION-AUTHORIZATION.md`.
 
 ## Development
 

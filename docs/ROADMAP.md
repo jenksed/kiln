@@ -325,4 +325,4 @@ Development pauses when:
 
 ## Exact next action
 
-P1-S01 is complete and accepted. PR #48 was adjudicated at exact head `7ba158bd`, passed CI, failed technical acceptance, and closed without merge. P1-S02 is unauthorized. Return to governance planning to correct the T01 contract before accepting and authorizing any replacement implementation.
+P1-S01 is complete and accepted. PR #48 was adjudicated at exact head `7ba158bd`, passed CI, failed technical acceptance, and closed without merge. P0-W38 proposes the corrected T01 contract; P1-S02 remains unauthorized. After P0-W38 integrates, the owner must accept, revise, or reject that proposal. Plan acceptance and a later exact implementation authorization remain separate decisions.
