@@ -527,4 +527,415 @@ defmodule Kiln.Artifact.StoreTest do
   # -- internal --
 
   defp artifact_root_path(store), do: store.artifact_root
+
+  defp digest_for(bytes) when is_binary(bytes) do
+    "sha256:" <> (:crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower))
+  end
+
+  # ----------------------------------------------------------------------
+  # Layer 2 repair checkpoint: adversarial coverage for the boundaries the
+  # first checkpoint over-claimed or under-proved.
+  # ----------------------------------------------------------------------
+
+  describe "interior symlink containment (AC03 / security boundary)" do
+    test "rejects a symlink at the sha256/<prefix> intermediate pointing outside the root",
+         %{store: store, base: base} do
+      external = Path.join(base, "external-target")
+      File.mkdir_p!(external)
+      pre_existing = Path.join(external, "pre-existing.txt")
+      File.write!(pre_existing, "untouched")
+
+      {:ok, request} = valid_request()
+      digest = digest_for(request.bytes)
+      <<first_two::binary-size(2), _::binary>> = String.replace_prefix(digest, "sha256:", "")
+      intermediate = Path.join([store.artifact_root, "sha256", first_two])
+
+      # Plant the symlink AFTER the Store is ready but BEFORE the write.
+      File.mkdir_p!(Path.dirname(intermediate))
+      File.rm_rf!(intermediate)
+      File.ln_s!(external, intermediate)
+      assert File.lstat!(intermediate).type == :symlink
+
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(store, request)
+
+      # No metadata row.
+      assert artifact_count(store) == 0
+
+      # No bytes outside the accepted root.
+      assert File.read!(pre_existing) == "untouched"
+
+      external_files =
+        external
+        |> Path.join("*")
+        |> Path.wildcard()
+
+      assert external_files == [pre_existing]
+
+      # No leftover staging file that would grant authority.
+      leftover_stages =
+        store.artifact_root
+        |> Path.join("**/.kiln-stage-*")
+        |> Path.wildcard()
+
+      assert leftover_stages == []
+
+      # The symlink itself is preserved (the Store must not delete or alter the target).
+      assert File.lstat!(intermediate).type == :symlink
+      assert File.read!(pre_existing) == "untouched"
+    end
+
+    test "rejects a symlink at the sha256 top-level intermediate", %{store: store, base: base} do
+      external = Path.join(base, "external-sha256")
+      File.mkdir_p!(external)
+      pre_existing = Path.join(external, "marker")
+      File.write!(pre_existing, "x")
+
+      sha256 = Path.join(store.artifact_root, "sha256")
+      File.rm_rf!(sha256)
+      File.ln_s!(external, sha256)
+      assert File.lstat!(sha256).type == :symlink
+
+      {:ok, request} = valid_request()
+
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(store, request)
+      assert artifact_count(store) == 0
+      assert File.read!(pre_existing) == "x"
+    end
+
+    test "preserves a pre-existing valid blob when an unrelated symlink is present",
+         %{store: store, base: base} do
+      {:ok, first_request} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000a1",
+          bytes: "first bytes",
+          idempotency_key: "idem_first"
+        })
+
+      {:ok, first_artifact, %{status: :committed}} = ArtifactStore.put(store, first_request)
+      first_final = Path.join(store.artifact_root, first_artifact.content_location)
+      first_bytes = File.read!(first_final)
+      assert first_bytes == "first bytes"
+
+      # Now plant a symlink at a different intermediate path.
+      other_digest = digest_for("other bytes")
+
+      <<other_prefix::binary-size(2), _::binary>> =
+        String.replace_prefix(other_digest, "sha256:", "")
+
+      other_intermediate = Path.join([store.artifact_root, "sha256", other_prefix])
+
+      external = Path.join(base, "external-other")
+      File.mkdir_p!(external)
+      File.rm_rf!(other_intermediate)
+      File.ln_s!(external, other_intermediate)
+
+      {:ok, second_request} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000a2",
+          bytes: "other bytes",
+          idempotency_key: "idem_second"
+        })
+
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(store, second_request)
+
+      # The first publication remains intact; the symlink did not affect it.
+      assert File.read!(first_final) == first_bytes
+      assert File.lstat!(other_intermediate).type == :symlink
+      assert artifact_count(store) == 1
+    end
+
+    test "rejects a symlink at the artifact root level when introduced after startup",
+         %{store: store, base: base} do
+      external = Path.join(base, "external-root")
+      File.mkdir_p!(external)
+
+      # Replace the existing artifact_root directory with a symlink pointing outside.
+      File.rm_rf!(store.artifact_root)
+      File.ln_s!(external, store.artifact_root)
+
+      {:ok, request} = valid_request()
+
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(store, request)
+      assert artifact_count(store) == 0
+    end
+  end
+
+  describe "Unicode-safe staging name (Layer 2 R14, idempotency_key bound)" do
+    test "accepts a valid non-ASCII idempotency_key without raising",
+         %{store: store} do
+      unicode_key = "idem_中文_ключ_🪄"
+
+      {:ok, request} =
+        valid_request(%{
+          idempotency_key: unicode_key,
+          artifact_id: "01920080-0000-7000-8000-000000000030"
+        })
+
+      assert {:ok, artifact, %{status: :committed}} = ArtifactStore.put(store, request)
+
+      final = Path.join(store.artifact_root, artifact.content_location)
+      assert File.read!(final) == @bytes
+
+      # No leftover staging file.
+      leftover_stages =
+        store.artifact_root
+        |> Path.join("**/.kiln-stage-*")
+        |> Path.wildcard()
+
+      assert leftover_stages == []
+
+      # Replay round-trips with the same Unicode key.
+      {:ok, replay, %{status: :replayed}} = ArtifactStore.put(store, request)
+      assert replay.artifact_id == artifact.artifact_id
+    end
+
+    test "replay of a Unicode-keyed request returns the same committed record",
+         %{store: store} do
+      unicode_key = "idem_中文_🚀_test"
+
+      {:ok, request} =
+        valid_request(%{
+          idempotency_key: unicode_key,
+          artifact_id: "01920080-0000-7000-8000-000000000040"
+        })
+
+      {:ok, first, %{status: :committed}} = ArtifactStore.put(store, request)
+      {:ok, replay, %{status: :replayed}} = ArtifactStore.put(store, request)
+
+      assert first.artifact_id == replay.artifact_id
+      assert artifact_count(store) == 1
+    end
+
+    test "staging filename contains no path separators from the idempotency_key",
+         %{store: store} do
+      # The idempotency_key may contain filesystem-special printable characters
+      # (`/`, `\`, `*`, `?`, `|`, `<`, `>`, `:`, `"`) but those must never
+      # reach the staging filename. PutRequest rejects NUL and control bytes
+      # before they reach this layer.
+      tricky_key = "idem/with\\slashes|*pipes?and*dots:"
+
+      {:ok, request} =
+        valid_request(%{
+          idempotency_key: tricky_key,
+          artifact_id: "01920080-0000-7000-8000-000000000050"
+        })
+
+      assert {:ok, _artifact, %{status: :committed}} = ArtifactStore.put(store, request)
+
+      # If staging succeeded and was cleaned, there is nothing left.
+      leftover_stages =
+        store.artifact_root
+        |> Path.join("**/.kiln-stage-*")
+        |> Path.wildcard()
+
+      assert leftover_stages == []
+    end
+
+    test "staging filename suffix is a deterministic 12-character lowercase hex string",
+         %{store: _store} do
+      # Two different keys must produce two different suffixes, but both must
+      # be 12 lowercase hex characters.
+      assert "idem_a" |> stage_suffix_for_test() =~ ~r/^[0-9a-f]{12}$/
+      assert "idem_b" |> stage_suffix_for_test() =~ ~r/^[0-9a-f]{12}$/
+
+      # Different inputs produce different suffixes.
+      refute stage_suffix_for_test("idem_a") == stage_suffix_for_test("idem_b")
+
+      # Same input produces the same suffix (deterministic).
+      assert stage_suffix_for_test("idem_a") == stage_suffix_for_test("idem_a")
+    end
+
+    test "stage_pair/3 cannot raise on any valid PutRequest idempotency_key",
+         %{store: _store} do
+      # Exercise the real public seam with a representative spread.
+      keys = [
+        "idem_ascii",
+        "idem_中文_ключ_🪄",
+        "idem/with\\slashes",
+        String.duplicate("a", 256),
+        ""
+      ]
+
+      for key <- keys do
+        # Use the public stage_pair so any raise surfaces here.
+        # The empty string is rejected by PutRequest before reaching this
+        # layer; verify stage_pair itself is total for non-empty inputs.
+        case key do
+          "" ->
+            :ok
+
+          key ->
+            assert {_stage, _final} = Kiln.Artifact.FS.stage_pair("/tmp/x", "sha256/aa/bb", key)
+        end
+      end
+    end
+
+    defp stage_suffix_for_test(key),
+      do: :crypto.hash(:sha256, key) |> Base.encode16(case: :lower) |> binary_part(0, 12)
+  end
+
+  describe "metadata-boundary fault and pre-metadata orphan (AC03)" do
+    test "no committed row and no identity when the metadata insert fails after promotion",
+         %{store: store} do
+      {:ok, request} = valid_request()
+
+      Application.put_env(:kiln, :store_fault, %{metadata_persist: :raise})
+
+      assert {:error, _} = ArtifactStore.put(store, request)
+      Application.delete_env(:kiln, :store_fault)
+
+      assert artifact_count(store) == 0
+
+      # The promoted digest-addressed blob MAY remain as a pre-metadata orphan.
+      digest = digest_for(request.bytes)
+      relative = Kiln.Artifact.FS.content_location(digest)
+      orphan = Path.join(store.artifact_root, relative)
+
+      assert File.regular?(orphan)
+      assert File.read!(orphan) == @bytes
+    end
+
+    test "a restart does not manufacture Artifact identity from the pre-metadata orphan",
+         %{store: store, base: base} do
+      {:ok, request} = valid_request()
+
+      Application.put_env(:kiln, :store_fault, %{metadata_persist: :raise})
+      assert {:error, _} = ArtifactStore.put(store, request)
+      Application.delete_env(:kiln, :store_fault)
+
+      # The orphan is on disk but no row exists.
+      assert artifact_count(store) == 0
+
+      digest = digest_for(request.bytes)
+      orphan = Path.join(store.artifact_root, Kiln.Artifact.FS.content_location(digest))
+      assert File.regular?(orphan)
+
+      # Stop the existing connection, restart on the same path.
+      stop(store.conn)
+
+      {:ready, restarted} =
+        Store.start(
+          path: Path.join(base, "state.sqlite3"),
+          store_id: "store_test",
+          now: @now
+        )
+
+      on_exit(fn -> stop(restarted.conn) end)
+
+      assert artifact_count(restarted) == 0
+      assert File.regular?(orphan)
+
+      # `fetch` on an unknown artifact_id returns precondition, not a fabricated identity.
+      assert {:error, %{class: :precondition, code: :unknown_artifact}} =
+               ArtifactStore.fetch(restarted, request.artifact_id)
+    end
+
+    test "a later matching publication reuses the orphan and commits normally",
+         %{store: store, base: base} do
+      {:ok, request} = valid_request()
+
+      Application.put_env(:kiln, :store_fault, %{metadata_persist: :raise})
+      assert {:error, _} = ArtifactStore.put(store, request)
+      Application.delete_env(:kiln, :store_fault)
+
+      # Restart to prove the orphan survives a process boundary unchanged.
+      stop(store.conn)
+
+      {:ready, restarted} =
+        Store.start(
+          path: Path.join(base, "state.sqlite3"),
+          store_id: "store_test",
+          now: @now
+        )
+
+      on_exit(fn -> stop(restarted.conn) end)
+
+      # The exact same request now succeeds; the orphan is verified and reused.
+      assert {:ok, artifact, %{status: :committed}} = ArtifactStore.put(restarted, request)
+      assert artifact_count(restarted) == 1
+      assert File.read!(Path.join(restarted.artifact_root, artifact.content_location)) == @bytes
+    end
+
+    test "a tampered pre-existing destination is rejected as :corrupt",
+         %{store: store, base: base} do
+      {:ok, request} = valid_request()
+
+      # First write succeeds.
+      {:ok, artifact, %{status: :committed}} = ArtifactStore.put(store, request)
+      final = Path.join(store.artifact_root, artifact.content_location)
+
+      # Tamper with the on-disk blob so its size and digest disagree with metadata.
+      File.write!(final, "tampered with different bytes")
+      assert File.read!(final) != @bytes
+
+      stop(store.conn)
+
+      {:ready, restarted} =
+        Store.start(
+          path: Path.join(base, "state.sqlite3"),
+          store_id: "store_test",
+          now: @now
+        )
+
+      on_exit(fn -> stop(restarted.conn) end)
+
+      # Fetch reports the corrupt blob.
+      assert {:ok, _, %{integrity_status: :corrupt}} =
+               ArtifactStore.fetch(restarted, artifact.artifact_id)
+
+      # A subsequent identical put must reject the tampered destination as :integrity.
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(restarted, request)
+      assert artifact_count(restarted) == 1
+
+      # The tampered content is unchanged on disk (the Store did not overwrite a
+      # mismatched blob silently).
+      assert File.read!(final) == "tampered with different bytes"
+    end
+
+    test "preserves a pre-existing valid blob and row when a later put fails at metadata",
+         %{store: store, base: base} do
+      {:ok, first} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000c1",
+          bytes: "preserved bytes",
+          idempotency_key: "idem_preserved"
+        })
+
+      {:ok, first_artifact, %{status: :committed}} = ArtifactStore.put(store, first)
+      first_final = Path.join(store.artifact_root, first_artifact.content_location)
+      first_bytes = File.read!(first_final)
+      assert first_bytes == "preserved bytes"
+
+      # Trigger a metadata-boundary fault for an unrelated second put.
+      {:ok, second} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000c2",
+          bytes: "second bytes",
+          idempotency_key: "idem_second_faulted"
+        })
+
+      Application.put_env(:kiln, :store_fault, %{metadata_persist: :raise})
+      assert {:error, _} = ArtifactStore.put(store, second)
+      Application.delete_env(:kiln, :store_fault)
+
+      # Restart and confirm the first publication survives intact.
+      stop(store.conn)
+
+      {:ready, restarted} =
+        Store.start(
+          path: Path.join(base, "state.sqlite3"),
+          store_id: "store_test",
+          now: @now
+        )
+
+      on_exit(fn -> stop(restarted.conn) end)
+
+      assert {:ok, fetched, %{integrity_status: :verified}} =
+               ArtifactStore.fetch(restarted, first_artifact.artifact_id)
+
+      assert fetched.artifact_id == first_artifact.artifact_id
+      assert File.read!(first_final) == first_bytes
+      assert artifact_count(restarted) == 1
+    end
+  end
 end

@@ -296,11 +296,13 @@ defmodule Kiln.Artifact.Store do
          request,
          artifact,
          content_digest,
-         _location,
+         location,
          stage_path,
          final_path
        ) do
-    with :ok <- stage_publish(root, request, content_digest, stage_path, final_path) do
+    with :ok <- FS.verify_chain(root, location),
+         :ok <- stage_publish(root, request, content_digest, stage_path, final_path),
+         :ok <- maybe_inject_metadata_persist() do
       Connection.query!(
         tx,
         """
@@ -366,6 +368,20 @@ defmodule Kiln.Artifact.Store do
          :ok <- ensure_target(root, request, content_digest, final_path),
          :ok <- FS.publish(stage_path, final_path) do
       :ok
+    end
+  end
+
+  # Test seam: a deterministic failure mechanism at the narrow boundary between
+  # content promotion and Artifact metadata commit. Tests set
+  # `Application.put_env(:kiln, :store_fault, %{metadata_persist: :raise})`
+  # to simulate a fault after the blob has been renamed but before the SQL
+  # INSERT succeeds. The Store layer translates the ErlangError into a typed
+  # `unknown` error; the transaction rolls back, no row is committed, and the
+  # promoted blob remains as a permitted pre-metadata orphan (AC03).
+  defp maybe_inject_metadata_persist do
+    case Application.get_env(:kiln, :store_fault, %{}) |> Map.get(:metadata_persist) do
+      :raise -> :erlang.error({:kiln_store_fault, :metadata_persist, []})
+      _ -> :ok
     end
   end
 

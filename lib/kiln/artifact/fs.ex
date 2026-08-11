@@ -94,23 +94,142 @@ defmodule Kiln.Artifact.FS do
   end
 
   @doc """
+  Walk every intermediate directory of `relative` below `root` and ensure each
+  is a real directory (not a symlink, not a special file). The leaf component
+  of `relative` (the digest filename) is the file the Store will publish and
+  is not pre-created here.
+
+  Missing directories are created with `File.mkdir/1` rather than
+  `File.mkdir_p!/1` so a parent symlink cannot redirect the walk.
+
+  Returns `:ok` on success, or a typed `Kiln.Store.Error` when the chain
+  contains a symlink, special file, or cannot be created.
+
+  The check uses `File.lstat/1` so a symlink at any intermediate component is
+  detected even though `File.realpath` would have followed it. This is the
+  filesystem-resolution proof that no `Artifact` write can escape through an
+  interior symlink. `root` must already have been proven a real directory by
+  `ensure_root/1` at Store startup; this function does not re-verify `root`
+  itself.
+  """
+  @spec verify_chain(String.t(), String.t()) :: :ok | {:error, Error.t()}
+  def verify_chain(root, relative) when is_binary(root) and is_binary(relative) do
+    parent_components =
+      relative
+      |> Path.dirname()
+      |> Path.split()
+
+    case Enum.reduce_while(parent_components, {:ok, root}, &ensure_real_dir_step/2) do
+      {:ok, _final} -> :ok
+      {:error, %Error{} = err} -> {:error, err}
+    end
+  end
+
+  defp ensure_real_dir_step(component, {:ok, current}) do
+    next = Path.join(current, component)
+
+    case File.lstat(next) do
+      {:ok, %File.Stat{type: :directory}} ->
+        {:cont, {:ok, next}}
+
+      {:ok, %File.Stat{type: :symlink}} ->
+        {:halt,
+         {:error,
+          Error.new(
+            :integrity,
+            :interior_symlink,
+            "interior path component is a symlink",
+            %{component: component}
+          )}}
+
+      {:ok, %File.Stat{type: other}} ->
+        {:halt,
+         {:error,
+          Error.new(
+            :integrity,
+            :interior_special_file,
+            "interior path component is not a directory",
+            %{component: component, type: other}
+          )}}
+
+      {:error, :enoent} ->
+        case File.mkdir(next) do
+          :ok ->
+            {:cont, {:ok, next}}
+
+          {:error, :eexist} ->
+            # Race: someone created the directory between lstat and mkdir.
+            # Re-stat and proceed if it is a directory.
+            case File.lstat(next) do
+              {:ok, %File.Stat{type: :directory}} -> {:cont, {:ok, next}}
+              {:ok, %File.Stat{type: :symlink}} -> {:halt, interior_symlink_error(component)}
+              {:ok, %File.Stat{type: other}} -> {:halt, interior_special_error(component, other)}
+              {:error, reason} -> {:halt, interior_io_error(component, reason)}
+            end
+
+          {:error, reason} ->
+            {:halt, interior_io_error(component, reason)}
+        end
+
+      {:error, reason} ->
+        {:halt, interior_io_error(component, reason)}
+    end
+  end
+
+  defp interior_symlink_error(component) do
+    {:error,
+     Error.new(:integrity, :interior_symlink, "interior path component is a symlink", %{
+       component: component
+     })}
+  end
+
+  defp interior_special_error(component, type) do
+    {:error,
+     Error.new(
+       :integrity,
+       :interior_special_file,
+       "interior path component is not a directory",
+       %{component: component, type: type}
+     )}
+  end
+
+  defp interior_io_error(component, reason) do
+    {:error,
+     Error.new(:io, :interior_mkdir_failed, "interior path component could not be created", %{
+       component: component,
+       reason: inspect(reason)
+     })}
+  end
+
+  @doc """
   Stage a temporary file path beside the final destination.
 
   Returns `{stage_path, final_path}` for atomic same-directory rename. The stage
-  path includes a deterministic prefix so leftover stages from earlier faults
-  are visible in directory listings and can be cleaned up by tests.
+  path carries a deterministic 12-character lowercase-hex suffix derived from
+  the SHA-256 of the caller-supplied idempotency key, so the suffix is always
+  filesystem-safe (no path separators, no control bytes, no Unicode
+  assumptions) and bounded.
+
+  The caller-supplied idempotency key never reaches the filesystem name
+  directly; this guarantees that even a valid UTF-8 key cannot introduce a
+  path separator, NUL, or disallowed control byte into the staging filename.
   """
   @spec stage_pair(String.t(), String.t(), String.t()) :: {String.t(), String.t()}
   def stage_pair(root, relative, idempotency_key) when is_binary(root) do
     final = final_path(root, relative)
     parent = Path.dirname(final)
     stem = Path.basename(final)
-    stage = Path.join(parent, ".kiln-stage-" <> stem <> "-" <> short_key(idempotency_key))
+    suffix = stage_suffix(idempotency_key)
+    stage = Path.join(parent, ".kiln-stage-" <> stem <> "-" <> suffix)
     {stage, final}
   end
 
-  defp short_key(key) when is_binary(key) do
-    key |> String.replace(~r/[^A-Za-z0-9_.-]/, "_") |> binary_part(0, min(16, byte_size(key)))
+  # Always 12 lowercase hex characters; independent of any Unicode byte
+  # assumptions about the input idempotency_key.
+  defp stage_suffix(idempotency_key) when is_binary(idempotency_key) do
+    :crypto.hash(:sha256, idempotency_key)
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 12)
   end
 
   @doc """
