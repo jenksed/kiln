@@ -15,10 +15,10 @@ defmodule Kiln.Store.MigrationsTest do
   end
 
   test "applies the initial migration on a fresh store", %{conn: conn} do
-    assert {:ok, %{version: 2, applied_now: [1, 2]}} =
+    assert {:ok, %{version: 4, applied_now: [1, 2, 3, 4]}} =
              Migrations.migrate(conn, now: "2026-07-29T00:00:00Z")
 
-    assert Migrations.current_version(conn) == 2
+    assert Migrations.current_version(conn) == 4
 
     tables =
       conn
@@ -34,20 +34,20 @@ defmodule Kiln.Store.MigrationsTest do
 
   test "records the file checksum for an applied migration", %{conn: conn} do
     {:ok, _} = Migrations.migrate(conn, now: "2026-07-29T00:00:00Z")
-    {:ok, [_migration_1, migration_2]} = Migrations.discover()
+    {:ok, [_migration_1, migration_2 | _rest]} = Migrations.discover()
 
     rows =
       conn
       |> Connection.query!("SELECT version, checksum FROM schema_migrations ORDER BY version")
       |> Enum.map(&List.to_tuple/1)
 
-    assert {2, checksum} = List.last(rows)
+    assert {2, checksum} = Enum.find(rows, &match?({2, _}, &1))
     assert checksum == migration_2.checksum
   end
 
   test "is idempotent when already current", %{conn: conn} do
     {:ok, _} = Migrations.migrate(conn, now: "2026-07-29T00:00:00Z")
-    assert {:ok, %{version: 2, applied_now: []}} = Migrations.migrate(conn)
+    assert {:ok, %{version: 4, applied_now: []}} = Migrations.migrate(conn)
   end
 
   test "blocks when the bundled migration set is absent", %{conn: conn, dir: dir} do
@@ -105,10 +105,10 @@ defmodule Kiln.Store.MigrationsTest do
         request_digest: "sha256:02"
       })
 
-      assert {:ok, %{version: 2, applied_now: [2]}} =
+      assert {:ok, %{version: 4, applied_now: [2, 3, 4]}} =
                Migrations.migrate(v1.conn, now: "2026-08-01T00:00:00Z")
 
-      assert Migrations.current_version(v1.conn) == 2
+      assert Migrations.current_version(v1.conn) == 4
 
       idx_rows =
         Connection.query!(
@@ -215,7 +215,7 @@ defmodule Kiln.Store.MigrationsTest do
       assert {:ok, report_two} = Replay.rebuild(v1.conn, session_two)
       assert report_two.projection["session"]["id"] == session_two
 
-      assert {:ok, %{version: 2, applied_now: [2]}} =
+      assert {:ok, %{version: 4, applied_now: [2, 3, 4]}} =
                Migrations.migrate(v1.conn, now: "2026-08-01T00:00:00Z")
 
       # After the upgrade the rebuild must still succeed; this is the
@@ -428,6 +428,218 @@ defmodule Kiln.Store.MigrationsTest do
 
     :ok
   end
+
+  describe "compound statements (P1-S02-T01-R16, AC15)" do
+    test "migration 0004 creates the aggregate-limit trigger", %{conn: conn} do
+      {:ok, _} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+
+      assert [["evidence_warnings_aggregate_limit"]] =
+               Connection.query!(
+                 conn,
+                 "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name"
+               )
+    end
+
+    test "exactly 16,384 aggregate warning bytes commit and 16,385 aborts", %{conn: conn} do
+      {:ok, _} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+      evidence_id = seed_evidence!(conn)
+
+      # 16 items x 1,024 bytes is exactly the accepted maximum.
+      Enum.each(0..15, fn position ->
+        insert_warning!(conn, evidence_id, position, 1024)
+      end)
+
+      assert aggregate_warning_bytes(conn, evidence_id) == 16_384
+
+      assert_raise Exqlite.Error, fn ->
+        insert_warning!(conn, evidence_id, 16, 1)
+      end
+
+      # The aborted statement left the aggregate untouched.
+      assert aggregate_warning_bytes(conn, evidence_id) == 16_384
+      assert count_warnings(conn, evidence_id) == 16
+    end
+
+    test "a single warning over 1,024 bytes is rejected by its row CHECK", %{conn: conn} do
+      {:ok, _} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+      evidence_id = seed_evidence!(conn)
+
+      assert_raise Exqlite.Error, fn ->
+        insert_warning!(conn, evidence_id, 0, 1025)
+      end
+
+      assert count_warnings(conn, evidence_id) == 0
+    end
+
+    test "warning position is bounded to 0 through 63", %{conn: conn} do
+      {:ok, _} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+      evidence_id = seed_evidence!(conn)
+
+      assert_raise Exqlite.Error, fn -> insert_warning!(conn, evidence_id, 64, 1) end
+      assert_raise Exqlite.Error, fn -> insert_warning!(conn, evidence_id, -1, 1) end
+      assert count_warnings(conn, evidence_id) == 0
+    end
+
+    test "non-compound SQL splits byte-for-byte as the pre-R16 splitter did", %{conn: conn} do
+      {:ok, migrations} = Migrations.discover()
+
+      # Direct observable comparison against the pre-R16 reference splitter.
+      # Absence of CREATE TRIGGER alone would not prove equivalence if the
+      # splitter had been globally rewritten, so compare actual output.
+      for migration <- migrations, migration.version <= 3 do
+        assert Migrations.__statements__(migration.sql) ==
+                 pre_r16_split_statements(migration.sql),
+               "migration #{migration.version} statement sequence changed under R16"
+      end
+
+      # Only 0004 introduces a compound statement, and it must survive whole.
+      trigger_versions =
+        migrations
+        |> Enum.filter(&String.contains?(String.upcase(&1.sql), "CREATE TRIGGER"))
+        |> Enum.map(& &1.version)
+
+      assert trigger_versions == [4]
+
+      compound =
+        migrations
+        |> Enum.find(&(&1.version == 4))
+        |> then(& &1.sql)
+        |> Migrations.__statements__()
+        |> Enum.filter(&String.contains?(String.upcase(&1), "CREATE TRIGGER"))
+
+      assert [trigger_statement] = compound
+      assert String.contains?(trigger_statement, "BEGIN")
+      assert String.contains?(trigger_statement, "RAISE(ABORT")
+      assert String.ends_with?(String.trim(trigger_statement), "END")
+
+      # The naive splitter would have shredded that same statement.
+      shredded =
+        migrations
+        |> Enum.find(&(&1.version == 4))
+        |> then(& &1.sql)
+        |> pre_r16_split_statements()
+        |> Enum.filter(&String.contains?(String.upcase(&1), "CREATE TRIGGER"))
+
+      assert [fragment] = shredded
+      refute String.ends_with?(String.trim(fragment), "END")
+
+      assert {:ok, %{version: 4}} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+    end
+
+    test "recorded checksums stay bound to file bytes, not the split", %{conn: conn} do
+      {:ok, migrations} = Migrations.discover()
+      {:ok, _} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+
+      applied = Migrations.applied(conn)
+
+      for migration <- migrations do
+        assert applied[migration.version] == migration.checksum
+        assert migration.checksum == sha256_hex(migration.sql)
+      end
+    end
+
+    test "an unterminated compound statement fails and records no checksum", %{
+      conn: conn,
+      dir: dir
+    } do
+      custom = Path.join(dir, "migrations")
+      File.mkdir_p!(custom)
+
+      File.write!(Path.join(custom, "0001_broken_trigger.sql"), """
+      CREATE TABLE probe (id INTEGER PRIMARY KEY, value TEXT);
+      CREATE TRIGGER probe_guard BEFORE INSERT ON probe
+      BEGIN
+        SELECT RAISE(ABORT, 'never') WHERE 1 = 0;
+      """)
+
+      assert {:error, %{class: :migration, code: :apply_failed}} =
+               Migrations.migrate(conn, dir: custom, now: "2026-08-11T00:00:00Z")
+
+      assert Migrations.applied(conn) == %{}
+
+      tables =
+        conn
+        |> Connection.query!("SELECT name FROM sqlite_master WHERE type = 'table'")
+        |> List.flatten()
+
+      refute "probe" in tables
+    end
+  end
+
+  defp seed_evidence!(conn) do
+    artifact_id = "01890a5d-ac96-774b-bcce-b302099a8057"
+    evidence_id = "01890a5d-ac96-774b-bcce-b302099a8058"
+
+    Connection.query!(conn, """
+    INSERT INTO artifacts VALUES (
+      '#{artifact_id}','s','r',NULL,'run','o','command','p','output','text/plain','utf_8',
+      'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      11,'sha256/e3/b0c44',NULL,NULL,'kiln_generated','project','run','complete',
+      '2026-08-11T00:00:00Z','kiln.artifact/v1','idem-a',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    """)
+
+    Connection.query!(conn, """
+    INSERT INTO evidence_records VALUES (
+      '#{evidence_id}','s','r','crit-1','rev-1','subj-1','run','sd',
+      'repository','p','repository_observation','pass','rsd',
+      NULL,NULL,NULL,NULL,NULL,NULL,'ed','od','complete','same_repository_state',
+      '2026-08-11T00:00:00Z','2026-08-11T00:00:00Z',NULL,'kiln.evidence/v1','idem-e',
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc')
+    """)
+
+    evidence_id
+  end
+
+  defp insert_warning!(conn, evidence_id, position, bytes) do
+    Connection.query!(conn, "INSERT INTO evidence_warnings VALUES (?1, ?2, ?3)", [
+      evidence_id,
+      position,
+      String.duplicate("x", bytes)
+    ])
+  end
+
+  defp aggregate_warning_bytes(conn, evidence_id) do
+    [[total]] =
+      Connection.query!(
+        conn,
+        "SELECT COALESCE(SUM(length(CAST(warning AS BLOB))), 0) FROM evidence_warnings WHERE evidence_id = ?1",
+        [evidence_id]
+      )
+
+    total
+  end
+
+  defp count_warnings(conn, evidence_id) do
+    [[count]] =
+      Connection.query!(
+        conn,
+        "SELECT count(*) FROM evidence_warnings WHERE evidence_id = ?1",
+        [evidence_id]
+      )
+
+    count
+  end
+
+  # The exact pre-R16 splitter, retained as the reference behavior that
+  # non-compound migrations must continue to produce byte-for-byte.
+  defp pre_r16_split_statements(sql) do
+    sql
+    |> String.split("\n")
+    |> Enum.map(fn line ->
+      case :binary.match(line, "--") do
+        {index, _} -> binary_part(line, 0, index)
+        :nomatch -> line
+      end
+    end)
+    |> Enum.join("\n")
+    |> String.split(";")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp sha256_hex(value), do: :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
 
   defp stop(conn) do
     if Process.alive?(conn), do: GenServer.stop(conn)

@@ -343,6 +343,24 @@ defmodule Kiln.Store.Migrations do
   # Split a migration file into individual statements. Line comments are
   # stripped; statements are separated by semicolons. Migration SQL must not
   # embed semicolons inside string or identifier literals.
+  #
+  # A compound statement (`CREATE TRIGGER ... BEGIN ...; ...; END;`) contains
+  # semicolons that terminate the statements inside its body, so naive
+  # splitting shreds it into fragments that SQLite rejects with
+  # "incomplete input". `rejoin_compound/1` reassembles those fragments into
+  # one statement (P1-S02-T01-R16).
+  #
+  # A file containing no `CREATE TRIGGER` never enters the accumulating branch,
+  # so migrations 0001 through 0003 produce a byte-identical statement
+  # sequence and their recorded checksums are unaffected.
+  @doc false
+  # Test seam. `statements/1` is private, but P1-S02-T01-AC15 requires an
+  # observable comparison proving the split of non-compound SQL is unchanged
+  # by compound support rather than merely argued from the absence of
+  # `CREATE TRIGGER`. Not part of the public Store API.
+  @spec __statements__(String.t()) :: [String.t()]
+  def __statements__(sql), do: statements(sql)
+
   defp statements(sql) do
     sql
     |> String.split("\n")
@@ -351,7 +369,46 @@ defmodule Kiln.Store.Migrations do
     |> String.split(";")
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
+    |> rejoin_compound()
   end
+
+  # Reassemble compound-statement bodies. Fragments are accumulated from the
+  # one that opens a trigger until the one that closes it with `END`. The
+  # separating semicolons are restored so the body reaches SQLite intact.
+  #
+  # An unterminated compound statement is emitted as-is rather than silently
+  # dropped, so the driver reports the malformed SQL and the migration fails
+  # without recording its checksum.
+  defp rejoin_compound(fragments) do
+    {reversed, pending} = Enum.reduce(fragments, {[], nil}, &accumulate_fragment/2)
+
+    case pending do
+      nil -> Enum.reverse(reversed)
+      unterminated -> Enum.reverse([unterminated | reversed])
+    end
+  end
+
+  defp accumulate_fragment(fragment, {done, nil}) do
+    if compound_start?(fragment) do
+      {done, fragment}
+    else
+      {[fragment | done], nil}
+    end
+  end
+
+  defp accumulate_fragment(fragment, {done, buffer}) do
+    combined = buffer <> ";\n" <> fragment
+
+    if compound_end?(fragment) do
+      {[combined | done], nil}
+    else
+      {done, combined}
+    end
+  end
+
+  defp compound_start?(fragment), do: Regex.match?(~r/\bCREATE\s+TRIGGER\b/i, fragment)
+
+  defp compound_end?(fragment), do: Regex.match?(~r/(\A|\s)END\z/i, String.trim(fragment))
 
   defp strip_line_comment(line) do
     case :binary.match(line, "--") do
