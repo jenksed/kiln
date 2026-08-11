@@ -60,7 +60,8 @@ write_ticket_plan() {
   } >"$path"
 }
 
-write_slice_plan() {
+# Writes the heading set required by non-ticket work kinds: planning and slice.
+write_nonticket_plan() {
   local work_id=$1
   local branch=$2
   local status=$3
@@ -252,7 +253,7 @@ new_case valid-slice
   slice_id=P9-S98
   slice_branch=work/p9-s98-preflight-fixture
   slice_plan="docs/work/${slice_id}-preflight-fixture.md"
-  write_slice_plan "$slice_id" "$slice_branch" Accepted
+  write_nonticket_plan "$slice_id" "$slice_branch" Accepted
   write_authorization "$slice_id" authorized "Joshua Jenks" "$base_sha" "$(sha256_file "$slice_plan")" \
     2026-08-08T12:00:00-04:00 "Preflight slice fixture only"
   git add "$slice_plan" "docs/authorizations/${slice_id}.authorization"
@@ -449,7 +450,27 @@ new_case missing-heading
 expect_failure "$prepared_repo" work/p9-s99-t85-preflight-fixture "ticket plan missing Demo contribution" \
   "is missing heading: Demo contribution"
 
-(cd "$source_root" && KILN_BRANCH=work/p0-w34-enforce-authorization-boundary scripts/agent-preflight >/dev/null)
+# A planning work branch carries a plan but no authorization record, and must pass
+# from a named checkout whose KILN_BRANCH matches. The fixture owns its own branch
+# identity so this case is independent of the outer Repository checkout.
+new_case planning
+(
+  cd "$prepared_repo"
+  branch=work/p9-w99-preflight-fixture
+  work_id=P9-W99
+  plan="docs/work/${work_id}-preflight-fixture.md"
+  write_nonticket_plan "$work_id" "$branch" Accepted
+  git add "$plan"
+  git commit --quiet -m "Add planning fixture plan"
+  git update-ref refs/remotes/origin/main HEAD
+  git switch --quiet -c "$branch"
+)
+[[ "$(git -C "$prepared_repo" branch --show-current)" == work/p9-w99-preflight-fixture ]] ||
+  fail "planning fixture must exercise a named checkout, not a detached HEAD"
+expect_success "$prepared_repo" work/p9-w99-preflight-fixture "planning work branch without authorization"
+expect_failure "$prepared_repo" work/p9-w98-preflight-fixture "mismatched planning branch identity" \
+  "does not match checked-out branch"
+
 expect_failure "$prepared_repo" work/p0-invalid "invalid work branch"
 expect_failure "$prepared_repo" work/p1-s1-t1-bad-width "invalid slice-ticket width"
 expect_failure "$prepared_repo" main "main"
