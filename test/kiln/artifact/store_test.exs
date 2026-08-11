@@ -35,18 +35,22 @@ defmodule Kiln.Artifact.StoreTest do
   # -- helpers --
 
   defp valid_request(opts \\ []) do
-    %{artifact_id: artifact_id, idempotency_key: idem_key, bytes: bytes} =
-      Enum.into(opts, %{
-        artifact_id: "01920080-0000-7000-8000-000000000001",
-        idempotency_key: @idempotency_key,
-        bytes: @bytes
-      })
+    defaults = %{
+      artifact_id: "01920080-0000-7000-8000-000000000001",
+      idempotency_key: @idempotency_key,
+      bytes: @bytes,
+      media_type_override: nil
+    }
+
+    merged = Map.merge(defaults, Map.new(opts))
+
+    media_type = merged.media_type_override || "application/octet-stream"
 
     PutRequest.new(%{
-      artifact_id: artifact_id,
-      idempotency_key: idem_key,
+      artifact_id: merged.artifact_id,
+      idempotency_key: merged.idempotency_key,
       recorded_at: @now,
-      bytes: bytes,
+      bytes: merged.bytes,
       metadata: %{
         session_id: "ses_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         run_id: "run_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -55,7 +59,7 @@ defmodule Kiln.Artifact.StoreTest do
         producer_kind: :user,
         producer_id: "user:local",
         kind: :output,
-        media_type: "application/octet-stream",
+        media_type: media_type,
         encoding: :binary,
         trust: :user_supplied,
         sensitivity: :project,
@@ -138,14 +142,33 @@ defmodule Kiln.Artifact.StoreTest do
       assert siblings == []
     end
 
-    test "stores no content bytes in SQLite", %{store: store} do
+    test "stores no content bytes in SQLite (content_digest metadata is persisted)",
+         %{store: store} do
       {:ok, request} = valid_request()
       {:ok, artifact, _} = ArtifactStore.put(store, request)
 
       # Confirm the SQLite file does not contain the literal published bytes.
+      # `content_digest` is intentionally persisted Artifact metadata; it is
+      # not the content itself. The invariant is that Artifact content bytes
+      # never enter SQLite; the digest is allowed and expected.
+      #
+      # SQLite stores text values as UTF-8 inside BLOB records that may be
+      # paged or compressed. We verify the invariant by checking that the
+      # content bytes are absent from a byte-level read and that the
+      # content_digest is present in the SQLite row directly.
       sqlite_bytes = File.read!(store.state_path)
       refute sqlite_bytes =~ @bytes
-      refute sqlite_bytes =~ artifact.content_digest
+
+      rows =
+        Connection.query!(
+          store.conn,
+          "SELECT content_digest FROM artifacts WHERE artifact_id = ?1",
+          [artifact.artifact_id]
+        )
+
+      expected_digest = artifact.content_digest
+      assert [[row_digest]] = rows
+      assert row_digest == expected_digest
     end
   end
 
@@ -936,6 +959,379 @@ defmodule Kiln.Artifact.StoreTest do
       assert fetched.artifact_id == first_artifact.artifact_id
       assert File.read!(first_final) == first_bytes
       assert artifact_count(restarted) == 1
+    end
+  end
+
+  # ----------------------------------------------------------------------
+  # Layer 2 repair checkpoint: leaf-component symlink and special-file
+  # rejection. The repair uses File.lstat on the final path component before
+  # any open. Tests exercise the real public Artifact.Store.put/2 and
+  # fetch/2 paths.
+  # ----------------------------------------------------------------------
+
+  describe "leaf-component classification (security boundary)" do
+    test "put/2 with a symlink at the final blob path rejects as integrity and never follows",
+         %{store: store, base: base} do
+      {:ok, first} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000d1",
+          bytes: "original bytes",
+          idempotency_key: "idem_leaf_symlink_first"
+        })
+
+      {:ok, artifact, _} = ArtifactStore.put(store, first)
+      final = Path.join(store.artifact_root, artifact.content_location)
+      assert File.read!(final) == "original bytes"
+
+      # Plant a symlink at a different content-addressed path pointing to an
+      # external file with attacker-controlled contents.
+      external_file = Path.join(base, "attacker-target.txt")
+      File.write!(external_file, "attacker payload")
+
+      other_digest = digest_for("attacker-targeted bytes")
+      other_location = Kiln.Artifact.FS.content_location(other_digest)
+      final_for_other = Path.join(store.artifact_root, other_location)
+
+      File.mkdir_p!(Path.dirname(final_for_other))
+      File.rm_rf!(final_for_other)
+      File.ln_s!(external_file, final_for_other)
+      assert File.lstat!(final_for_other).type == :symlink
+
+      {:ok, second} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000d2",
+          bytes: "attacker-targeted bytes",
+          idempotency_key: "idem_leaf_symlink_second"
+        })
+
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(store, second)
+      assert artifact_count(store) == 1
+
+      # The external target is untouched.
+      assert File.read!(external_file) == "attacker payload"
+
+      # The symlink is preserved (not deleted or replaced).
+      assert File.lstat!(final_for_other).type == :symlink
+
+      # No leftover staging file.
+      leftover_stages =
+        store.artifact_root
+        |> Path.join("**/.kiln-stage-*")
+        |> Path.wildcard()
+
+      assert leftover_stages == []
+
+      # The first publication remains intact.
+      assert File.read!(final) == "original bytes"
+    end
+
+    test "fetch/2 after a valid blob is replaced by a symlink never reads the external target",
+         %{store: store, base: base} do
+      {:ok, request} = valid_request()
+      {:ok, artifact, _} = ArtifactStore.put(store, request)
+      final = Path.join(store.artifact_root, artifact.content_location)
+
+      external_file = Path.join(base, "fetch-attacker.txt")
+      File.write!(external_file, "fetch attacker payload")
+
+      File.rm!(final)
+      File.ln_s!(external_file, final)
+      assert File.lstat!(final).type == :symlink
+
+      # The metadata row remains; fetch must not mutate it and must not trust
+      # the symlink target.
+      assert {:ok, fetched, %{integrity_status: :corrupt}} =
+               ArtifactStore.fetch(store, artifact.artifact_id)
+
+      assert fetched.artifact_id == artifact.artifact_id
+      assert fetched.content_digest == artifact.content_digest
+      assert fetched.byte_size == artifact.byte_size
+
+      # The external target is unchanged.
+      assert File.read!(external_file) == "fetch attacker payload"
+    end
+
+    test "put/2 with a directory at the final blob path rejects as integrity",
+         %{store: store} do
+      {:ok, request} = valid_request()
+
+      # Plant a directory where the final blob path would be created.
+      digest = digest_for(request.bytes)
+      final = Path.join(store.artifact_root, Kiln.Artifact.FS.content_location(digest))
+      File.mkdir_p!(final)
+      assert File.lstat!(final).type == :directory
+
+      assert {:error, %{class: :integrity, code: :leaf_is_directory}} =
+               ArtifactStore.put(store, request)
+
+      assert artifact_count(store) == 0
+      assert File.lstat!(final).type == :directory
+    end
+
+    test "put/2 with a special file (FIFO) at the final blob path rejects as integrity",
+         %{store: store} do
+      {:ok, request} = valid_request()
+
+      digest = digest_for(request.bytes)
+      final = Path.join(store.artifact_root, Kiln.Artifact.FS.content_location(digest))
+      File.mkdir_p!(Path.dirname(final))
+      File.rm_rf!(final)
+      # Portable special-file fixture: FIFO (named pipe) is available on
+      # POSIX. The Store classifies the leaf without dereferencing and rejects
+      # any non-regular leaf as :integrity before opening.
+      {_, 0} = System.cmd("mkfifo", [final])
+      assert File.lstat!(final).type == :other
+
+      assert {:error, %{class: :integrity}} = ArtifactStore.put(store, request)
+      assert artifact_count(store) == 0
+
+      # The FIFO itself is preserved (the Store does not delete or alter it).
+      assert File.lstat!(final).type == :other
+    end
+
+    test "fetch/2 with a directory at the final blob path rejects with integrity-derived status",
+         %{store: store} do
+      {:ok, request} = valid_request()
+      {:ok, artifact, _} = ArtifactStore.put(store, request)
+      final = Path.join(store.artifact_root, artifact.content_location)
+
+      File.rm!(final)
+      File.mkdir_p!(final)
+
+      assert {:ok, _fetched, %{integrity_status: :corrupt}} =
+               ArtifactStore.fetch(store, artifact.artifact_id)
+
+      # Metadata row remains immutable across the failed fetch.
+      expected_id = artifact.artifact_id
+      assert [[row_id, _, _, _]] = artifact_row(store, expected_id)
+      assert row_id == expected_id
+    end
+  end
+
+  # ----------------------------------------------------------------------
+  # Layer 2 repair checkpoint: canonical request representation.
+  # The persistent request map used for byte-size enforcement, digest
+  # calculation, and replay identity is one and the same. request_digest
+  # is computed over the canonical map with the caller-supplied envelope
+  # fields and content fields, never over a nil placeholders.
+  # ----------------------------------------------------------------------
+
+  describe "canonical Artifact request representation" do
+    test "a canonical request of exactly 65,536 bytes is accepted",
+         %{store: _store} do
+      request = build_request_at_canonical_size(65_536)
+
+      canonical =
+        Kiln.Artifact.persistent_request_map(
+          envelope_from_struct(request),
+          request.metadata
+        )
+
+      encoded = Kiln.Store.Canonical.encode(canonical)
+      assert byte_size(encoded) == 65_536
+
+      # The PutRequest that backs the boundary is accepted (size is at the
+      # boundary, not above).
+      assert {:ok, _} = PutRequest.new(request)
+    end
+
+    test "a canonical request of 65,537 bytes is rejected as precondition / limit_exceeded before any side effect",
+         %{store: store, base: _base} do
+      request_map = request_map_at_canonical_size(65_537)
+
+      # The rejection must occur in PutRequest.new, before any filesystem
+      # staging, BEGIN IMMEDIATE, or metadata write.
+      artifact_root_before = file_signature(store.artifact_root)
+      sqlite_before = File.read!(store.state_path)
+
+      assert {:error, %{class: :precondition, code: :limit_exceeded}} =
+               PutRequest.new(request_map)
+
+      artifact_root_after = file_signature(store.artifact_root)
+      sqlite_after = File.read!(store.state_path)
+
+      assert artifact_root_before == artifact_root_after
+      assert sqlite_before == sqlite_after
+      assert artifact_count(store) == 0
+    end
+
+    test "recomputing request_digest from a stored Artifact yields the persisted request_digest",
+         %{store: store} do
+      {:ok, request} = valid_request()
+      {:ok, artifact, _} = ArtifactStore.put(store, request)
+
+      stored_digest = artifact.request_digest
+      recomputed = Kiln.Artifact.request_digest(artifact)
+
+      assert stored_digest == recomputed
+      assert stored_digest =~ ~r/^[0-9a-f]{64}$/
+    end
+
+    test "an exact retry replays under the same idempotency_key and request_digest",
+         %{store: store} do
+      {:ok, request} = valid_request()
+
+      {:ok, first, %{status: first_status}} = ArtifactStore.put(store, request)
+      assert first_status == :committed
+
+      {:ok, replay, %{status: replay_status}} = ArtifactStore.put(store, request)
+      assert replay_status == :replayed
+      assert replay.artifact_id == first.artifact_id
+      assert artifact_count(store) == 1
+    end
+
+    test "a one-field persistent-request change under the same idempotency_key produces idempotency_conflict",
+         %{store: store} do
+      {:ok, first} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000c2",
+          idempotency_key: "idem_conflict"
+        })
+
+      {:ok, _committed, _} = ArtifactStore.put(store, first)
+
+      # Change a single persistent field (media_type) under the same
+      # idempotency_key. The persistent request changes, so the canonical
+      # map changes, so the request_digest changes — this is not an exact
+      # retry.
+      {:ok, conflicting} =
+        valid_request(%{
+          artifact_id: "01920080-0000-7000-8000-0000000000c3",
+          idempotency_key: "idem_conflict",
+          media_type_override: "application/different"
+        })
+
+      assert {:error, %{class: :idempotency_conflict, code: :key_reuse_different_request}} =
+               ArtifactStore.put(store, conflicting)
+
+      assert artifact_count(store) == 1
+    end
+  end
+
+  # ----------------------------------------------------------------------
+  # Helper for building PutRequests of an exact canonical size.
+  # We pad `media_type` (which is bounded 1..255 bytes) with deterministic
+  # ASCII filler so the canonical encoding lands exactly at 65,536 or
+  # 65,537 bytes.
+  # ----------------------------------------------------------------------
+
+  defp build_request_at_canonical_size(target) do
+    request_map = request_map_at_canonical_size(target)
+
+    case PutRequest.new(request_map) do
+      {:ok, request} -> request
+      {:error, error} -> raise "PutRequest rejected target=#{target}: #{inspect(error)}"
+    end
+  end
+
+  defp request_map_at_canonical_size(target) do
+    # The unbounded `repository_state_digest` field is the only field that
+    # can carry enough bytes to reach the 65,536-byte canonical bound. The
+    # canonical encoding is linear in the value's byte length (single-byte
+    # ASCII, no escapes), so the size formula is:
+    #
+    #     base_with_one_char =  base + field_overhead
+    #     size(filler = n)   =  base_with_one_char + (n - 1)
+    #
+    # Solving for n:  n = target - base_with_one_char + 1
+    base_with_one_char = base_canonical_size_with_rsd_present()
+    filler_len = target - base_with_one_char + 1
+
+    if filler_len < 0 do
+      raise "target #{target} is below the base canonical size #{base_with_one_char}"
+    end
+
+    filler = String.duplicate("a", filler_len)
+    metadata = put_metadata_with_unbounded_filler(filler)
+    Map.put(base_request_map_for_size(), :metadata, metadata)
+  end
+
+  defp base_canonical_size do
+    base = base_request_map_for_size()
+    metadata = put_metadata("application/octet-stream")
+    envelope = envelope_from(base)
+
+    canonical = Kiln.Artifact.persistent_request_map(envelope, metadata)
+    byte_size(Kiln.Store.Canonical.encode(canonical))
+  end
+
+  defp base_canonical_size_with_rsd_present do
+    base = base_request_map_for_size()
+    metadata = put_metadata_with_unbounded_filler("a")
+    envelope = envelope_from(base)
+
+    canonical = Kiln.Artifact.persistent_request_map(envelope, metadata)
+    byte_size(Kiln.Store.Canonical.encode(canonical))
+  end
+
+  defp base_request_map_for_size do
+    %{
+      artifact_id: "01920080-0000-7000-8000-000000000099",
+      idempotency_key: "idem_canonical_size",
+      recorded_at: @now,
+      bytes: "canonical-size fixture",
+      metadata: %{
+        session_id: "ses_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        run_id: "run_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        owner_kind: :session,
+        owner_id: "ses_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        producer_kind: :user,
+        producer_id: "user:local",
+        kind: :output,
+        media_type: "application/octet-stream",
+        encoding: :binary,
+        trust: :user_supplied,
+        sensitivity: :project,
+        retention_class: :session,
+        completeness: :complete
+      }
+    }
+  end
+
+  defp envelope_from(request) when is_map(request) do
+    %{
+      artifact_id: Map.get(request, :artifact_id) || Map.get(request, "artifact_id"),
+      idempotency_key: Map.get(request, :idempotency_key) || Map.get(request, "idempotency_key"),
+      recorded_at: Map.get(request, :recorded_at) || Map.get(request, "recorded_at"),
+      bytes: Map.get(request, :bytes) || Map.get(request, "bytes")
+    }
+  end
+
+  defp envelope_from_struct(%{artifact_id: a, idempotency_key: i, recorded_at: r, bytes: b}) do
+    %{artifact_id: a, idempotency_key: i, recorded_at: r, bytes: b}
+  end
+
+  defp put_metadata(media_type) do
+    %{
+      session_id: "ses_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      run_id: "run_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      owner_kind: :session,
+      owner_id: "ses_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      producer_kind: :user,
+      producer_id: "user:local",
+      kind: :output,
+      media_type: media_type,
+      encoding: :binary,
+      trust: :user_supplied,
+      sensitivity: :project,
+      retention_class: :session,
+      completeness: :complete
+    }
+  end
+
+  # Pads the unbounded `repository_state_digest` field with the supplied filler
+  # so the canonical request encoding can land at an exact target byte count.
+  # The filler is plain lowercase ASCII so it never triggers the NUL or
+  # control-byte rejection.
+  defp put_metadata_with_unbounded_filler(filler) do
+    Map.put(put_metadata("application/octet-stream"), :repository_state_digest, filler)
+  end
+
+  defp file_signature(dir) do
+    if File.exists?(dir) do
+      {File.lstat!(dir).mtime, File.lstat!(dir).size}
+    else
+      :missing
     end
   end
 end

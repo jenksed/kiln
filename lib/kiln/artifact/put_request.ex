@@ -64,11 +64,18 @@ defmodule Kiln.Artifact.PutRequest do
     bytes = Map.fetch!(attrs, :bytes)
     metadata = Map.fetch!(attrs, :metadata)
 
+    envelope = %{
+      artifact_id: artifact_id,
+      idempotency_key: idempotency_key,
+      recorded_at: recorded_at,
+      bytes: bytes
+    }
+
     with {:ok, artifact_id} <- check_uuid_v7(artifact_id),
          {:ok, idempotency_key} <- check_idempotency_key(idempotency_key),
          {:ok, recorded_at} <- check_recorded_at(recorded_at),
          {:ok, bytes} <- check_bytes(bytes),
-         {:ok, _canonical_request} <- check_canonical_request_size(bytes, metadata) do
+         :ok <- check_canonical_request_size(envelope, metadata) do
       {:ok,
        %__MODULE__{
          artifact_id: artifact_id,
@@ -185,18 +192,9 @@ defmodule Kiln.Artifact.PutRequest do
   defp check_bytes(_),
     do: {:error, Error.new(:precondition, :wrong_type, "bytes must be a binary", %{})}
 
-  defp check_canonical_request_size(bytes, metadata) do
-    candidate =
-      metadata
-      |> stringify_values()
-      |> Map.merge(%{
-        "artifact_id" => Map.get(metadata, :artifact_id),
-        "idempotency_key" => Map.get(metadata, :idempotency_key),
-        "recorded_at" => Map.get(metadata, :recorded_at),
-        "byte_size" => byte_size(bytes)
-      })
-
-    encoded = Kiln.Store.Canonical.encode(candidate)
+  defp check_canonical_request_size(envelope, metadata) do
+    canonical = Kiln.Artifact.persistent_request_map(envelope, metadata)
+    encoded = Kiln.Store.Canonical.encode(canonical)
 
     if byte_size(encoded) > Kiln.Artifact.max_canonical_request() do
       {:error,
@@ -207,21 +205,9 @@ defmodule Kiln.Artifact.PutRequest do
          %{max: Kiln.Artifact.max_canonical_request(), actual: byte_size(encoded)}
        )}
     else
-      {:ok, encoded}
+      :ok
     end
   end
-
-  defp stringify_values(value) when is_map(value) do
-    Map.new(value, fn {k, v} -> {k, stringify_values(v)} end)
-  end
-
-  defp stringify_values(value) when is_list(value), do: Enum.map(value, &stringify_values/1)
-
-  defp stringify_values(value)
-       when is_atom(value) and value not in [nil, true, false],
-       do: Atom.to_string(value)
-
-  defp stringify_values(value), do: value
 
   defp has_disallowed_control?(value) when is_binary(value) do
     value

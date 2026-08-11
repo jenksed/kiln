@@ -288,19 +288,29 @@ defmodule Kiln.Artifact.FS do
           | {:error, Error.t()}
   def verify_staged(stage_path, expected_size, expected_digest)
       when is_binary(stage_path) and is_integer(expected_size) and is_binary(expected_digest) do
-    with {:ok, stat} <- stat_or_error(stage_path) do
-      cond do
-        stat.size != expected_size ->
-          return_integrity(:artifact_size_mismatch, "staged size differs from request")
+    with {:ok, stat} <- lstat_or_error(stage_path) do
+      case stat.type do
+        :regular ->
+          if stat.size != expected_size do
+            return_integrity(:artifact_size_mismatch, "staged size differs from request")
+          else
+            rehash_and_check(stage_path, expected_size, expected_digest)
+          end
 
-        true ->
-          rehash_and_check(stage_path, expected_size, expected_digest)
+        :symlink ->
+          return_integrity(:leaf_is_symlink, "staged file is a symlink")
+
+        :directory ->
+          return_integrity(:leaf_is_directory, "staged file is a directory")
+
+        other ->
+          return_integrity(:leaf_is_special_file, "staged file is a special file", %{type: other})
       end
     end
   end
 
-  defp stat_or_error(path) do
-    {:ok, File.stat!(path)}
+  defp lstat_or_error(path) do
+    {:ok, File.lstat!(path)}
   rescue
     e in File.Error ->
       return_integrity(:artifact_staged_unreadable, Exception.message(e))
@@ -380,21 +390,92 @@ defmodule Kiln.Artifact.FS do
     end
   end
 
+  @typedoc "Classification of the final Artifact path component via lstat."
+  @type leaf_type :: :regular | :absent | :symlink | :directory | {:special, atom()}
+
+  @doc """
+  Classify the final Artifact path component without dereferencing.
+
+  Uses `File.lstat/1` so the result describes the path itself rather than its
+  target. A symlink at the final component is reported as `:symlink`, never
+  followed, even when its target is a real regular file. POSIX `lstat(2)` does
+  not follow the final-component symlink and reports the entry's own type.
+
+  Returns one of:
+
+    * `:regular` — a normal file; permitted for rehash verification.
+    * `:absent` — no entry at the path; permitted where publication expects
+      absence.
+    * `:symlink` — a symlink at the final component; rejected as `:integrity`
+      for any read or destination-verification path.
+    * `:directory` — a directory at the final component; rejected as
+      `:integrity`.
+    * `{:special, type}` — a special file (block, character, FIFO, socket,
+      device, other); rejected as `:integrity`.
+
+  This proves rejection of an already-present unauthorized leaf at read or
+  destination time. It does not establish race-free containment: a
+  same-user concurrent TOCTOU attacker can replace the leaf between
+  classification and open.
+  """
+  @spec classify_leaf(String.t()) :: {:ok, leaf_type()} | {:error, Error.t()}
+  def classify_leaf(path) when is_binary(path) do
+    case File.lstat(path) do
+      {:ok, %File.Stat{type: :regular}} ->
+        {:ok, :regular}
+
+      {:ok, %File.Stat{type: :symlink}} ->
+        {:ok, :symlink}
+
+      {:ok, %File.Stat{type: :directory}} ->
+        {:ok, :directory}
+
+      {:ok, %File.Stat{type: other}} when is_atom(other) ->
+        {:ok, {:special, other}}
+
+      {:error, :enoent} ->
+        {:ok, :absent}
+
+      {:error, reason} ->
+        {:error,
+         Error.new(:io, :artifact_leaf_stat_failed, "could not stat artifact leaf", %{
+           reason: inspect(reason)
+         })}
+    end
+  end
+
   @doc """
   Read the bytes at `path` for verification, returning size and digest.
 
   Used by `fetch/2` to verify an already-published blob against its metadata.
+  Classifies the leaf with `lstat` first; a non-regular leaf (symlink,
+  directory, special file) is rejected with `:integrity` and the symlink
+  target is never dereferenced.
   """
   @spec rehash_existing(String.t()) ::
           {:ok, %{size: non_neg_integer(), digest: String.t()}}
           | {:error, Error.t()}
   def rehash_existing(path) when is_binary(path) do
-    case File.regular?(path) do
-      true ->
+    case classify_leaf(path) do
+      {:ok, :regular} ->
         rehash_file_or_error(path)
 
-      false ->
+      {:ok, :symlink} ->
+        return_integrity(:leaf_is_symlink, "artifact leaf is a symlink")
+
+      {:ok, :directory} ->
+        return_integrity(:leaf_is_directory, "artifact leaf is a directory")
+
+      {:ok, {:special, type}} ->
+        return_integrity(:leaf_is_special_file, "artifact leaf is a special file", %{
+          type: type
+        })
+
+      {:ok, :absent} ->
         return_integrity(:artifact_missing, "expected regular file at content path")
+
+      {:error, %Error{} = err} ->
+        {:error, err}
     end
   rescue
     e in File.Error ->
@@ -407,6 +488,10 @@ defmodule Kiln.Artifact.FS do
   catch
     {:rehash_failed, reason} ->
       return_integrity(:artifact_unreadable, inspect(reason))
+  end
+
+  defp return_integrity(code, message, details \\ %{}) do
+    {:error, Error.new(:integrity, code, message, details)}
   end
 
   @doc """
@@ -422,10 +507,6 @@ defmodule Kiln.Artifact.FS do
       {:error, :enoent} -> :ok
       {:error, _} -> :ok
     end
-  end
-
-  defp return_integrity(code, message) do
-    {:error, Error.new(:integrity, code, message, %{})}
   end
 
   # Test seam: real fault injection at meaningful durability boundaries.

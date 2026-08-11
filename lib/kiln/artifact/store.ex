@@ -399,30 +399,65 @@ defmodule Kiln.Artifact.Store do
   # digest we are about to publish; otherwise the destination is corrupt or
   # the request is malformed. Identical blobs are accepted and the existing
   # file is reused (P1-S02-T01-A03, R04).
+  #
+  # Classifies the leaf via lstat before opening so a symlink at the final
+  # component is rejected as :integrity without dereferencing its target.
   defp ensure_target(_root, request, content_digest, final_path) do
-    if File.exists?(final_path) do
-      case FS.rehash_existing(final_path) do
-        {:ok, %{digest: ^content_digest, size: size}} when size == byte_size(request.bytes) ->
-          :ok
+    case FS.classify_leaf(final_path) do
+      {:ok, :absent} ->
+        :ok
 
-        {:ok, %{digest: ^content_digest}} ->
-          {:error,
-           Error.new(:integrity, :artifact_size_mismatch, "destination size differs", %{})}
+      {:ok, :regular} ->
+        case FS.rehash_existing(final_path) do
+          {:ok, %{digest: ^content_digest, size: size}} when size == byte_size(request.bytes) ->
+            :ok
 
-        {:ok, _} ->
-          {:error,
-           Error.new(
-             :integrity,
-             :destination_conflict,
-             "destination already holds a non-identical blob",
-             %{}
-           )}
+          {:ok, %{digest: ^content_digest}} ->
+            {:error,
+             Error.new(:integrity, :artifact_size_mismatch, "destination size differs", %{})}
 
-        {:error, %Error{class: :integrity} = error} ->
-          {:error, error}
-      end
-    else
-      :ok
+          {:ok, _} ->
+            {:error,
+             Error.new(
+               :integrity,
+               :destination_conflict,
+               "destination already holds a non-identical blob",
+               %{}
+             )}
+
+          {:error, %Error{class: :integrity} = error} ->
+            {:error, error}
+        end
+
+      {:ok, :symlink} ->
+        {:error,
+         Error.new(
+           :integrity,
+           :leaf_is_symlink,
+           "destination is a symlink",
+           %{}
+         )}
+
+      {:ok, :directory} ->
+        {:error,
+         Error.new(
+           :integrity,
+           :leaf_is_directory,
+           "destination is a directory",
+           %{}
+         )}
+
+      {:ok, {:special, type}} ->
+        {:error,
+         Error.new(
+           :integrity,
+           :leaf_is_special_file,
+           "destination is a special file",
+           %{type: type}
+         )}
+
+      {:error, %Error{} = err} ->
+        {:error, err}
     end
   end
 

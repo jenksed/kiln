@@ -159,16 +159,37 @@ defmodule Kiln.Artifact do
   def max_canonical_request, do: @max_canonical_request
 
   @doc """
-  Canonical-shape map for digest computation.
+  Canonical persistent-request map for digest computation and replay identity.
 
-  Returns a sorted-key map containing every persisted field in the exact order
-  required by the canonical byte authority. Nil-valued fields are preserved as
-  explicit `nil` so the canonical bytes include them. The map is suitable for
-  `Kiln.Store.Canonical.encode/1` and `digest/2`.
+  Returns the persisted field map excluding `request_digest` itself. The same
+  representation is used for byte-size enforcement, request_digest calculation,
+  and replay identity so the three cannot drift.
+
+  The caller-supplied envelope fields (`artifact_id`, `idempotency_key`,
+  `recorded_at`) are the actual persistent values; nil placeholders are not
+  substituted.
   """
   @spec canonical_map(t()) :: map()
   def canonical_map(%__MODULE__{} = record) do
-    Map.from_struct(record)
+    record
+    |> Map.from_struct()
+    |> Map.delete(:request_digest)
+  end
+
+  @doc """
+  Byte size of the canonical request encoding.
+
+  Used by the byte-size enforcement and by replay verification. Returns the
+  exact byte count of `Kiln.Store.Canonical.encode/1` applied to the canonical
+  map with atom vocabulary values stringified.
+  """
+  @spec canonical_byte_size(t()) :: non_neg_integer()
+  def canonical_byte_size(%__MODULE__{} = record) do
+    record
+    |> canonical_map()
+    |> stringify_values()
+    |> Kiln.Store.Canonical.encode()
+    |> byte_size()
   end
 
   @doc """
@@ -183,6 +204,45 @@ defmodule Kiln.Artifact do
     |> canonical_map()
     |> stringify_values()
     |> then(&Kiln.Store.Canonical.digest(@schema, &1))
+  end
+
+  @doc """
+  Build the canonical persistent-request map from the caller's envelope and
+  metadata, computing `content_digest`, `byte_size`, and `content_location`
+  from `bytes`.
+
+  Returns a single map with every persisted Artifact field except
+  `request_digest`, ready for canonical-byte encoding. Atom vocabulary values
+  are stringified in place. This is the same shape produced by `canonical_map/1`
+  over a stored record so size enforcement, digest computation, and replay
+  identity all read the identical representation.
+  """
+  @spec persistent_request_map(map(), keyword() | map()) :: map()
+  def persistent_request_map(envelope, metadata)
+      when is_map(envelope) and is_map(metadata) do
+    bytes = Map.fetch!(envelope, :bytes)
+    artifact_id = Map.fetch!(envelope, :artifact_id)
+    idempotency_key = Map.fetch!(envelope, :idempotency_key)
+    recorded_at = Map.fetch!(envelope, :recorded_at)
+
+    content_digest = compute_content_digest(bytes)
+    content_location = Kiln.Artifact.FS.content_location(content_digest)
+
+    metadata
+    |> stringify_values()
+    |> Map.merge(%{
+      schema: @schema,
+      artifact_id: artifact_id,
+      idempotency_key: idempotency_key,
+      recorded_at: recorded_at,
+      content_digest: content_digest,
+      byte_size: byte_size(bytes),
+      content_location: content_location
+    })
+  end
+
+  defp compute_content_digest(bytes) when is_binary(bytes) do
+    "sha256:" <> (:crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower))
   end
 
   defp stringify_values(value) when is_map(value) do

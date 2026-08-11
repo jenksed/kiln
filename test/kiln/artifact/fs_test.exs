@@ -127,7 +127,7 @@ defmodule Kiln.Artifact.FSTest do
     end
 
     test "reports integrity when the path is a directory", %{base: base} do
-      assert {:error, %{class: :integrity, code: :artifact_missing}} = FS.rehash_existing(base)
+      assert {:error, %{class: :integrity, code: :leaf_is_directory}} = FS.rehash_existing(base)
     end
   end
 
