@@ -360,7 +360,8 @@ Allowed:
 - add descriptive runtime JSON Schemas;
 - add deterministic temporary-root and SQLite fixtures;
 - use existing Store error classes with domain-specific codes;
-- extend `Kiln.Store.Migrations.statements/1` only far enough to recognize a compound SQLite statement, so migration 0004 can create its aborting aggregate trigger.
+- extend `Kiln.Store.Migrations.statements/1` only far enough to recognize a compound SQLite statement, so migration 0004 can create its aborting aggregate trigger;
+- add the subordinate Artifact filesystem primitives module `lib/kiln/artifact/fs.ex` whose only public surface is: Artifact filesystem placement under the caller-supplied Artifact root; staging and atomic-publication helpers; intermediate-component and final-leaf path containment/integrity checks; content hashing and rehash verification; cleanup helpers for leftover staging files; and filesystem-specific deterministic test seams (`{:kiln, {:fs_fault, key}}` injection points) used by T01 publication tests. The module is subordinate to `Kiln.Artifact.Store` and gains no independent domain authority (P1-S02-T01-AC16).
 
 Denied:
 
@@ -370,7 +371,8 @@ Denied:
 - new Store error classes when existing `integrity`, `idempotency_conflict`, `precondition`, `io`, and `unknown` classes suffice;
 - caller-supplied transaction callbacks, nested transactions, savepoints, hidden retry, or automatic deletion;
 - provider, Repository source read, Context, Tool, Patch, Approval, Command, Gate, Finding, Assurance, criterion aggregation, completion, Receipt, release, Child, TUI, protocol, or Wave B behavior;
-- treating schema files, model output, Artifact existence, or a successful write as acceptance authority.
+- treating schema files, model output, Artifact existence, or a successful write as acceptance authority;
+- for `lib/kiln/artifact/fs.ex` specifically: Repository source access; arbitrary caller-selected roots beyond the Artifact root supplied by `Kiln.Artifact.Store`; deletion or garbage collection of any Artifact or non-Artifact path; remote storage or any non-filesystem I/O; background processes, processes, supervision, or scheduling; retries, recovery loops, or speculative re-execution; and any Provider, model, Context, Tool, Patch, Command, Gate, Receipt, or later P1-S02 capability.
 
 Any unclassified filesystem or database effect returns `unknown` or integrity failure and blocks the operation. Errors must be bounded and must not disclose Artifact bytes, secrets, absolute denied paths, connection handles, or raw database exceptions.
 
@@ -394,6 +396,7 @@ Any unclassified filesystem or database effect returns `unknown` or integrity fa
 | `lib/kiln/artifact.ex` | immutable Artifact record | Proposed |
 | `lib/kiln/artifact/put_request.ex` | exact typed `put/2` request | Proposed |
 | `lib/kiln/artifact/store.ex` | filesystem publication, integrity-checked fetch, metadata, integrity, idempotency | Proposed |
+| `lib/kiln/artifact/fs.ex` | subordinate Artifact filesystem primitives: placement, staging, atomic-publication helpers, intermediate containment, final-leaf classification, content hashing/rehash verification, cleanup helpers, filesystem-specific deterministic test seams (P1-S02-T01-AC16) | Proposed |
 | `lib/kiln/evidence.ex` | immutable Evidence and pure `new/1` validation | Proposed |
 | `lib/kiln/evidence/record_request.ex` | immutable payload plus unseen-key admission context, with separate persistent request identity | Proposed |
 | `lib/kiln/evidence/currentness.ex` | pure state-based freshness, contradiction, and first-month view projection | Proposed |
@@ -516,6 +519,11 @@ Each migration runs in the existing migration runner's own immediate transaction
   - **When** the runner discovers and applies them against fresh and upgraded stores;
   - **Then** migrations 0001 through 0003 apply with identical checksums and an identical executed statement sequence, the trigger is created and fires, exactly 16,384 aggregate warning bytes commit, 16,385 aggregate bytes abort the statement, and a failed compound migration records no `schema_migrations` checksum.
   - **Evidence:** statement-splitter unit matrix, trigger creation and firing fixtures, aggregate boundary pair, checksum and statement-sequence stability proof, and failed-compound-migration rollback proof.
+- **P1-S02-T01-AC16 — Subordinate Artifact filesystem module surface**
+  - **Given** the implementation branch at `05423aa2a8fdbe65952a41c80159d0f61204beeb` and the amended file table;
+  - **When** `lib/kiln/artifact/fs.ex` is inspected;
+  - **Then** the module exposes only the bounded responsibilities named in this plan's security boundary, references no Provider, Repository, Context, Tool, Patch, Command, Gate, Receipt, model invocation, network, deletion/GC, retry, scheduler, or process surface, and every public function either returns `:ok` / `{:ok, value}` or a `Kiln.Store.Error` with bytes and paths stripped from error details.
+  - **Evidence:** module surface audit, public-function return-type audit, and grep proof of zero references to denied capability namespaces.
 
 ## Deterministic verification
 
@@ -562,6 +570,7 @@ P1-S02-D01 prerequisite: publish deterministic Artifacts through put/2, record o
 | P1-S02-T01-E13 | AC13 | numeric boundary, multibyte, overflow, direct-SQL, and no-truncation results |
 | P1-S02-T01-E14 | AC14 | exact-head CI, owner-machine diagnostic, final diff, and plan digest binding |
 | P1-S02-T01-E15 | AC15 | splitter matrix, trigger creation and firing, aggregate boundary pair, checksum and statement-sequence stability, and failed-compound-migration rollback results |
+| P1-S02-T01-E16 | AC16 | module surface audit, public-function return-type audit, and grep proof of zero references to denied capability namespaces |
 
 ### Slice gate contribution
 
@@ -604,7 +613,7 @@ The corrected plan preserves that negative Evidence. It does not retroactively a
 | --- | --- | --- |
 | Corrected planning | Accepted | owner-accepted against canonical `main` `e57678874a36de1700aa666413b51aae31ea9b12` from reviewed Proposed-state digest `fb4dcad0d278ca096c383d835b19dc9bc1d66ca9dc66c7feaddc6daa728ea072` |
 | Owner acceptance | Granted | P0-W41 records the explicit owner decision |
-| Implementation authorization | Granted | P0-W42 created `docs/authorizations/P1-S02-T01.authorization`; P0-W43 reissues it against the amended plan digest and base `1243b8f27a594c9440638964a83b56c74774ba28` |
+| Implementation authorization | Granted | P0-W42 created `docs/authorizations/P1-S02-T01.authorization`; P0-W43 reissued it against the amended plan digest and base `1243b8f27a594c9440638964a83b56c74774ba28`; P0-W44 amends the plan to add `lib/kiln/artifact/fs.ex` to the file table with bounded responsibilities (P1-S02-T01-AC16) and reissues the authorization against the further-amended plan digest and canonical decision base `2f88281527811b8c4be0243fb201ae4416730a13` |
 | Replacement implementation | Not started | `work/p1-s02-t01-artifact-evidence-substrate-v2` exists at canonical `main` with zero unique commits |
 | Verification | Not run | only a later exact replacement head can supply runtime Evidence |
 | Acceptance | Not granted | implementation and exact completion Evidence do not exist |
