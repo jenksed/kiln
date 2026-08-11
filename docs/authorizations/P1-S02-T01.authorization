@@ -1,7 +1,7 @@
 work_id=P1-S02-T01
 state=authorized
 owner=Joshua Jenks
-base_sha=8555b81a9b13cb5a424cdf20b17fb4e2b30b43cf
-plan_sha256=b61f1c611d1a9df65b0334f7c71aa8c723e7d8c0dc4efe9fd5a053a78313e6e5
-authorized_at=2026-08-10T15:26:00-04:00
-scope=Implement only P1-S02-T01 Durable Artifact and Evidence substrate as defined by the accepted plan on a fresh replacement implementation branch; no PR #48 reuse, no P1-S02-T02 or later work, and no denied capability surface.
+base_sha=1243b8f27a594c9440638964a83b56c74774ba28
+plan_sha256=7dfd3b3ad600e67b110ad6eaec12a06880494958027910289250453c6ade662e
+authorized_at=2026-08-10T23:06:00-04:00
+scope=Implement only P1-S02-T01 Durable Artifact and Evidence substrate as defined by the amended accepted plan on a fresh replacement implementation branch, including the bounded migration-runner compound-statement change required by P1-S02-T01-R16; no PR #48 reuse, no P1-S02-T02 or later work, and no denied capability surface.

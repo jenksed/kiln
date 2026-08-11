@@ -2,7 +2,7 @@
 
 **Document type:** Implementation roadmap detail
 **Decision status:** Accepted by Prompt 8-A
-**Integration status:** P1-S01 integrated at `db02198`; PR #48 rejected; corrected P1-S02-T01 plan owner-accepted via P0-W41 at canonical `main` `8555b81a9b13cb5a424cdf20b17fb4e2b30b43cf`; bounded T01 implementation authorized via P0-W42 by `docs/authorizations/P1-S02-T01.authorization`; T01 implementation Not yet implemented; P1-S02-T02 and later remain unauthorized
+**Integration status:** P1-S01 integrated at `db02198`; PR #48 rejected; corrected P1-S02-T01 plan owner-accepted via P0-W41 at canonical `main` `8555b81a9b13cb5a424cdf20b17fb4e2b30b43cf`; bounded T01 implementation authorized via P0-W42 and reissued via P0-W43 by `docs/authorizations/P1-S02-T01.authorization`; T01 implementation Not yet implemented; P1-S02-T02 and later remain unauthorized
 **Implementation status:** P1-S01 — Durable single-Run foundation integrated and owner-accepted
 **Order authority:** `docs/ROADMAP.md`
 **Quality Compiler placement:** QC0/QC1 planned in P1-S02; QC2 planned with bounded delegation; QC3/QC4 evidence-gated later
@@ -239,7 +239,7 @@ Kiln has a durable work foundation that survives restart without reconstructing 
 # P1-S02 — Evidence-backed Single-Run Change Alpha plus QC0/QC1
 
 **Status:** Planned; corrected T01 plan Accepted; bounded T01 implementation Authorized; T01 implementation Not yet implemented; T02 and later Unauthorized
-**Entry gate:** P1-S01 aggregate gate, demo, verification manifest, owner-machine Evidence, and Prompt 8-A authorization conditions remain satisfied; the corrected T01 plan is owner-accepted via P0-W41; the bounded T01 implementation is authorized via P0-W42 by `docs/authorizations/P1-S02-T01.authorization` on canonical `main` `8555b81a9b13cb5a424cdf20b17fb4e2b30b43cf`; implementation begins only after the authorization record integrates on canonical `main`; the exact next action is a fresh replacement implementation branch `work/p1-s02-t01-artifact-evidence-substrate-v2` from the resulting canonical `main`.
+**Entry gate:** P1-S01 aggregate gate, demo, verification manifest, owner-machine Evidence, and Prompt 8-A authorization conditions remain satisfied; the corrected T01 plan is owner-accepted via P0-W41; the bounded T01 implementation is authorized via P0-W42 by `docs/authorizations/P1-S02-T01.authorization` and reissued via P0-W43 against the amended plan digest and canonical `main` `1243b8f27a594c9440638964a83b56c74774ba28`; implementation begins only after the P0-W43 governance change integrates on canonical `main`; the exact next action is to move `work/p1-s02-t01-artifact-evidence-substrate-v2` to the resulting canonical `main`.
 
 ## User-visible value
 

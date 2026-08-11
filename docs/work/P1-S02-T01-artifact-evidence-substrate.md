@@ -1,7 +1,7 @@
 # P1-S02-T01: Durable Artifact and Evidence substrate
 
 **Document type:** Implementation plan
-**Status:** Accepted (corrected replacement plan; owner acceptance recorded; implementation authorization absent and not granted)
+**Status:** Accepted (corrected replacement plan; owner acceptance recorded; amended by P0-W43 for P1-S02-T01-R16; bounded implementation authorization active)
 **Parent slice:** P1-S02
 **Branch:** `work/p1-s02-t01-artifact-evidence-substrate-v2` (fresh replacement; rejected branch `work/p1-s02-t01-artifact-evidence-substrate` must not be reused)
 **Depends on:** P1-S01-V01 accepted and integrated at `db021984a9278ed582804d0bf3acd74207ad32e9`; corrected plan owner-accepted against canonical `main` `e57678874a36de1700aa666413b51aae31ea9b12` from reviewed Proposed-state digest `fb4dcad0d278ca096c383d835b19dc9bc1d66ca9dc66c7feaddc6daa728ea072`; new exact T01 authorization integrated on canonical `main`
@@ -348,6 +348,7 @@ Evidence recording validates envelope bounds and digests, then opens one `BEGIN 
 - **P1-S02-T01-R13:** Artifact and Evidence shall remain plain data and functions; no process, registry, pool, retry loop, savepoint, nested transaction, provider, Repository source access, Patch, Command, Gate, completion, or Receipt surface shall be added.
 - **P1-S02-T01-R14:** Secrets, denied paths, raw transcript, and Repository source content shall not enter metadata or ordinary errors; Artifact sensitivity and retention shall remain explicit.
 - **P1-S02-T01-R15:** `Evidence.Store.fetch/2` and pure `Evidence.Currentness.evaluate/2` shall re-evaluate immutable records against explicit current bindings and peer Evidence without persistence, ambient time, or idempotency effects.
+- **P1-S02-T01-R16:** The migration runner shall apply compound SQLite statements whose bodies contain internal semicolons, so migration 0004 can create the aborting aggregate trigger required by this plan. The change is confined to compound-statement recognition in `Kiln.Store.Migrations.statements/1`. Migrations 0001 through 0003 shall apply with unchanged checksums and an unchanged executed statement sequence, and migration discovery, `schema_migrations` bookkeeping, per-migration transaction ownership, rollback, and error classification shall remain unchanged.
 
 ## Security boundary
 
@@ -358,7 +359,8 @@ Allowed:
 - add migrations 0003 and 0004 with database constraints and indexes justified by exact lookup or idempotency needs;
 - add descriptive runtime JSON Schemas;
 - add deterministic temporary-root and SQLite fixtures;
-- use existing Store error classes with domain-specific codes.
+- use existing Store error classes with domain-specific codes;
+- extend `Kiln.Store.Migrations.statements/1` only far enough to recognize a compound SQLite statement, so migration 0004 can create its aborting aggregate trigger.
 
 Denied:
 
@@ -382,6 +384,7 @@ Any unclassified filesystem or database effect returns `unknown` or integrity fa
 6. Add `kiln.artifact/v1` and `kiln.evidence/v1` runtime Schemas as descriptive shape validation, with canonical bytes owned only by `Kiln.Store.Canonical`.
 7. Add deterministic tests for byte placement, record identity, association integrity, transaction rollback, direct-SQL constraints, restart, idempotency, currentness, conformance projection, and every protected classification.
 8. Extend the existing Store migration and owner-machine diagnostic tests without changing the store-format identifier.
+9. Extend the migration runner's statement splitter to recognize a compound `CREATE TRIGGER ... BEGIN ... END;` statement, preserving the exact executed statement sequence and checksums of migrations 0001 through 0003.
 
 ## Expected files or components
 
@@ -402,7 +405,8 @@ Any unclassified filesystem or database effect returns `unknown` or integrity fa
 | `priv/schemas/kiln.evidence/v1.json` | descriptive Evidence v1 shape | Proposed |
 | `test/kiln/artifact/` | publication, integrity, replay, and failure fixtures | Proposed |
 | `test/kiln/evidence/` | construction, persistence, replay ordering, currentness, conformance projection, classification, and rollback fixtures | Proposed |
-| `test/kiln/store/migrations_test.exs` | fresh, upgrade, direct-write, failed-migration, and replay coverage | Proposed |
+| `test/kiln/store/migrations_test.exs` | fresh, upgrade, direct-write, failed-migration, compound-statement, and replay coverage | Proposed |
+| `lib/kiln/store/migrations.ex` | compound-statement support in `statements/1` only, sufficient for a SQLite trigger body containing internal semicolons | Proposed |
 | `test/kiln/store_test.exs` | ready Store Artifact-root and restart coverage | Proposed |
 | `scripts/diagnostics/p1-s01-store-host` | additive 0003/0004 owner-machine observations | Proposed only if the existing diagnostic requires it |
 
@@ -507,6 +511,11 @@ Each migration runs in the existing migration runner's own immediate transaction
   - **When** the complete Repository and owner-machine validation runs;
   - **Then** all checks pass and completion Evidence binds only that head.
   - **Evidence:** exact-head CI, OD-02 diagnostic, final diff, and recorded digest.
+- **P1-S02-T01-AC15 — Compound migration statements**
+  - **Given** migrations 0001 through 0003 and a migration containing `CREATE TRIGGER ... BEGIN ...; ... END;`;
+  - **When** the runner discovers and applies them against fresh and upgraded stores;
+  - **Then** migrations 0001 through 0003 apply with identical checksums and an identical executed statement sequence, the trigger is created and fires, exactly 16,384 aggregate warning bytes commit, 16,385 aggregate bytes abort the statement, and a failed compound migration records no `schema_migrations` checksum.
+  - **Evidence:** statement-splitter unit matrix, trigger creation and firing fixtures, aggregate boundary pair, checksum and statement-sequence stability proof, and failed-compound-migration rollback proof.
 
 ## Deterministic verification
 
@@ -552,6 +561,7 @@ P1-S02-D01 prerequisite: publish deterministic Artifacts through put/2, record o
 | P1-S02-T01-E12 | AC12 | transaction call graph, nested-use, dependency, and denied-surface review |
 | P1-S02-T01-E13 | AC13 | numeric boundary, multibyte, overflow, direct-SQL, and no-truncation results |
 | P1-S02-T01-E14 | AC14 | exact-head CI, owner-machine diagnostic, final diff, and plan digest binding |
+| P1-S02-T01-E15 | AC15 | splitter matrix, trigger creation and firing, aggregate boundary pair, checksum and statement-sequence stability, and failed-compound-migration rollback results |
 
 ### Slice gate contribution
 
@@ -574,7 +584,7 @@ T01 does not update or satisfy the aggregate P1-S02 verification manifest.
 
 ## Completion record
 
-**Result:** Corrected replacement plan owner-accepted against canonical `main` `e57678874a36de1700aa666413b51aae31ea9b12` from reviewed Proposed-state digest `fb4dcad0d278ca096c383d835b19dc9bc1d66ca9dc66c7feaddc6daa728ea072`. Not authorized, not implemented, not verified, and not accepted.
+**Result:** Corrected replacement plan owner-accepted against canonical `main` `e57678874a36de1700aa666413b51aae31ea9b12` from reviewed Proposed-state digest `fb4dcad0d278ca096c383d835b19dc9bc1d66ca9dc66c7feaddc6daa728ea072`, then amended by P0-W43 to authorize the bounded migration-runner compound-statement change required by P1-S02-T01-R16. Authorized, not implemented, not verified, and not accepted.
 
 ### Rejected-plan history
 
@@ -594,11 +604,11 @@ The corrected plan preserves that negative Evidence. It does not retroactively a
 | --- | --- | --- |
 | Corrected planning | Accepted | owner-accepted against canonical `main` `e57678874a36de1700aa666413b51aae31ea9b12` from reviewed Proposed-state digest `fb4dcad0d278ca096c383d835b19dc9bc1d66ca9dc66c7feaddc6daa728ea072` |
 | Owner acceptance | Granted | P0-W41 records the explicit owner decision |
-| Implementation authorization | Not granted | no active authorization record exists |
-| Replacement implementation | Not started | a fresh branch and package are required after authorization |
+| Implementation authorization | Granted | P0-W42 created `docs/authorizations/P1-S02-T01.authorization`; P0-W43 reissues it against the amended plan digest and base `1243b8f27a594c9440638964a83b56c74774ba28` |
+| Replacement implementation | Not started | `work/p1-s02-t01-artifact-evidence-substrate-v2` exists at canonical `main` with zero unique commits |
 | Verification | Not run | only a later exact replacement head can supply runtime Evidence |
 | Acceptance | Not granted | implementation and exact completion Evidence do not exist |
 
 ### Required next action
 
-A later, separate governance action must record the Accepted-state plan digest, the new canonical `main` SHA produced by the P0-W41 merge, owner, time, and bounded scope in a new T01 authorization on canonical `main`. Only then may a fresh replacement implementation branch begin; PR #48 must remain closed and unmerged.
+A later, separate governance action must record the Accepted-state plan digest, the new canonical `main` SHA produced by the P0-W41 merge, owner, time, and bounded scope in a new T01 authorization on canonical `main`. P0-W42 satisfied that action. P0-W43 amends this plan for P1-S02-T01-R16 and reissues the authorization record against the amended digest, because amending the plan invalidates the previous `plan_sha256` binding. Only after P0-W43 integrates may implementation begin on `work/p1-s02-t01-artifact-evidence-substrate-v2`; PR #48 must remain closed and unmerged.
