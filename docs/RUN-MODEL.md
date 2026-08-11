@@ -235,6 +235,6 @@ A product Receipt is sealed after that transaction and has no authority.
 
 P1-S01 was executed as T01 → T02 → T03 → T06 → T04 → T05 and integrated at `db02198` via PR #46. See `docs/work/P1-S01-T01-domain-foundation.md`, `docs/work/P1-S01-T02-durable-store.md`, `docs/work/P1-S01-T03-replay-projections.md`, `docs/work/P1-S01-T06-workflow-surface.md`, `docs/work/P1-S01-T04-foundation-cli.md`, `docs/work/P1-S01-T05-slice-gate.md`, and `docs/work/P1-S01-slice-closeout.md`.
 
-Those tickets implemented domain identifiers and states, the durable store, deterministic replay and projections, the shared Workflow application boundary, the minimum foundation CLI, and the P1-S01 aggregate gate and slice verification manifest. PR #48 was rejected; every P1-S02 ticket remains unauthorized.
+Those tickets implemented domain identifiers and states, the durable store, deterministic replay and projections, the shared Workflow application boundary, the minimum foundation CLI, and the P1-S01 aggregate gate and slice verification manifest. PR #48 was rejected, closed, and unmerged. P1-S02-T01 is boundedly authorized and not yet implemented; P1-S02-T02 and later remain unauthorized, and P1-S02 is not authorized as an aggregate slice.
 
 They may not implement MiniMax, Repository source reads, Patch mutation, external Commands, criterion completion Evidence, product Receipt sealing, release packaging, Child Runs, TUI, or Wave B work.

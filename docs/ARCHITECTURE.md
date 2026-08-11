@@ -3,7 +3,7 @@
 **Document type:** Architecture summary  
 **Decision status:** Accepted  
 **Integration status:** Reconciled by Prompt 8-A; Quality Compiler placement added as later planned work  
-**Implementation status:** P1-S01 integrated at `db02198`; PR #48 rejected; all P1-S02 work unauthorized  
+**Implementation status:** P1-S01 integrated at `db02198`; PR #48 rejected; P1-S02-T01 boundedly authorized and not yet implemented; P1-S02-T02 and later unauthorized; P1-S02 is not authorized as an aggregate slice  
 **Detailed subject authorities:** P0-W21 through P0-W25  
 **Quality Compiler design package:** `quality-compiler/`, subordinate to Roadmap and later slice authorization
 

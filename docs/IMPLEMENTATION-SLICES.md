@@ -239,7 +239,7 @@ Kiln has a durable work foundation that survives restart without reconstructing 
 # P1-S02 — Evidence-backed Single-Run Change Alpha plus QC0/QC1
 
 **Status:** Planned; corrected T01 plan Accepted; bounded T01 implementation Authorized; T01 implementation Not yet implemented; T02 and later Unauthorized
-**Entry gate:** P1-S01 aggregate gate, demo, verification manifest, owner-machine Evidence, and Prompt 8-A authorization conditions remain satisfied; the corrected T01 plan is owner-accepted via P0-W41; the bounded T01 implementation is authorized via P0-W42 by `docs/authorizations/P1-S02-T01.authorization` and reissued via P0-W43 against the amended plan digest and canonical `main` `1243b8f27a594c9440638964a83b56c74774ba28`; implementation begins only after the P0-W43 governance change integrates on canonical `main`; the exact next action is to move `work/p1-s02-t01-artifact-evidence-substrate-v2` to the resulting canonical `main`.
+**Entry gate:** P1-S01 aggregate gate, demo, verification manifest, owner-machine Evidence, and Prompt 8-A authorization conditions remain satisfied; the corrected T01 plan is owner-accepted via P0-W41; the bounded T01 implementation is authorized via P0-W42 by `docs/authorizations/P1-S02-T01.authorization` and reissued via P0-W43 against the amended plan digest and canonical decision base `1243b8f27a594c9440638964a83b56c74774ba28`; the reissued record becomes active authority only when P0-W43 integrates on canonical `main`; implementation begins only after that integration, by moving `work/p1-s02-t01-artifact-evidence-substrate-v2` to the observed canonical integration commit.
 
 ## User-visible value
 
