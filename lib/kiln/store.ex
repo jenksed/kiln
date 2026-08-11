@@ -24,6 +24,8 @@ defmodule Kiln.Store do
           store_format: String.t(),
           store_version: non_neg_integer(),
           sqlite_version: String.t(),
+          state_path: String.t(),
+          artifact_root: String.t(),
           info: Connection.info()
         }
 
@@ -118,7 +120,8 @@ defmodule Kiln.Store do
   defp continue(conn, opts) do
     with {:ok, info} <- verify(conn),
          {:ok, meta} <- ensure_metadata(conn, opts),
-         {:ok, migration} <- run_migrations(conn, opts) do
+         {:ok, migration} <- run_migrations(conn, opts),
+         :ok <- ensure_artifact_root(opts) do
       {:ready,
        %{
          conn: conn,
@@ -126,8 +129,32 @@ defmodule Kiln.Store do
          store_format: meta.store_format,
          store_version: migration.version,
          sqlite_version: info.sqlite_version,
+         state_path: Keyword.fetch!(opts, :path),
+         artifact_root: artifact_root(opts),
          info: info
        }}
+    end
+  end
+
+  # Derive the Artifact root below the same Kiln home that owns the SQLite
+  # store file. The state file's parent directory is the accepted Kiln home;
+  # the Artifact root is the deterministic `artifacts/` directory inside it.
+  # The root is created if absent and verified to be a real, non-symlink
+  # directory before the store reaches `:ready` (P1-S02-T01-R01, R13).
+  defp artifact_root(opts) do
+    state_path = Keyword.fetch!(opts, :path)
+    Path.join(Path.dirname(state_path), "artifacts")
+  end
+
+  defp ensure_artifact_root(opts) do
+    root = artifact_root(opts)
+
+    case Kiln.Artifact.FS.ensure_root(root) do
+      :ok ->
+        :ok
+
+      {:error, error} ->
+        {:blocked, :integrity_blocked, error}
     end
   end
 
