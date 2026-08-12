@@ -309,6 +309,38 @@ defmodule Kiln.Evidence.CurrentnessTest do
       assert fail_view.contradicting_evidence_ids == [pass.evidence_id]
     end
 
+    test "pass/pass/fail group: each pass only references the opposing fail" do
+      pass_a =
+        build_evidence(%{
+          evidence_id: "01900000-0000-7000-8000-000000000001",
+          result: :pass
+        })
+
+      pass_b =
+        build_evidence(%{
+          evidence_id: "01900000-0000-7000-8000-000000000002",
+          result: :pass
+        })
+
+      fail_c =
+        build_evidence(%{
+          evidence_id: "01900000-0000-7000-8000-000000000003",
+          result: :fail
+        })
+
+      {:ok, views} = Currentness.evaluate([pass_a, pass_b, fail_c], base_context())
+
+      pass_a_view = Enum.find(views, &(&1.evidence_id == pass_a.evidence_id))
+      pass_b_view = Enum.find(views, &(&1.evidence_id == pass_b.evidence_id))
+      fail_c_view = Enum.find(views, &(&1.evidence_id == fail_c.evidence_id))
+
+      assert pass_a_view.contradicting_evidence_ids == [fail_c.evidence_id]
+      assert pass_b_view.contradicting_evidence_ids == [fail_c.evidence_id]
+
+      assert Enum.sort(fail_c_view.contradicting_evidence_ids) ==
+               Enum.sort([pass_a.evidence_id, pass_b.evidence_id])
+    end
+
     test "contradiction is :none for two pass records" do
       pass_a =
         build_evidence(%{
@@ -750,6 +782,69 @@ defmodule Kiln.Evidence.CurrentnessTest do
         })
 
       assert {:error, :invalid_artifact_integrity} = Currentness.Context.new(attrs)
+    end
+
+    test "rejects artifact_integrity_by_id with non-binary keys" do
+      attrs =
+        Map.put(base_context(), :artifact_integrity_by_id, %{
+          :not_a_binary => :verified
+        })
+
+      assert {:error, :invalid_artifact_integrity} = Currentness.Context.new(attrs)
+    end
+
+    test "rejects required binary field with wrong type" do
+      for key <-
+            ~w(current_subject_state_digest current_repository_state_digest current_evaluator_digest evaluated_at)a do
+        attrs = Map.put(base_context(), key, 123)
+
+        assert {:error, {:wrong_type_required_field, ^key}} =
+                 Currentness.Context.new(attrs)
+      end
+    end
+
+    test "rejects required binary field that is empty" do
+      for key <-
+            ~w(current_subject_state_digest current_repository_state_digest current_evaluator_digest evaluated_at)a do
+        attrs = Map.put(base_context(), key, "")
+
+        assert {:error, {:empty_required_field, ^key}} =
+                 Currentness.Context.new(attrs)
+      end
+    end
+
+    test "rejects optional field with wrong type" do
+      for key <-
+            ~w(current_patch_id current_patch_digest current_patch_result_digest current_host_profile_digest current_command_registration_digest current_command_result_id invalidated_at)a do
+        attrs = Map.put(base_context(), key, 42)
+
+        assert {:error, {:wrong_type_optional_field, ^key}} =
+                 Currentness.Context.new(attrs)
+      end
+    end
+
+    test "rejects optional field that is empty" do
+      for key <-
+            ~w(current_patch_id current_patch_digest current_patch_result_digest current_host_profile_digest current_command_registration_digest current_command_result_id invalidated_at)a do
+        attrs = Map.put(base_context(), key, "")
+
+        assert {:error, {:empty_optional_field, ^key}} =
+                 Currentness.Context.new(attrs)
+      end
+    end
+
+    test "accepts optional fields set to nil" do
+      attrs =
+        base_context()
+        |> Map.put(:current_patch_id, nil)
+        |> Map.put(:current_patch_digest, nil)
+        |> Map.put(:current_patch_result_digest, nil)
+        |> Map.put(:current_host_profile_digest, nil)
+        |> Map.put(:current_command_registration_digest, nil)
+        |> Map.put(:current_command_result_id, nil)
+        |> Map.put(:invalidated_at, nil)
+
+      assert {:ok, _ctx} = Currentness.Context.new(attrs)
     end
   end
 

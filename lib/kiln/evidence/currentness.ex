@@ -84,14 +84,18 @@ defmodule Kiln.Evidence.Currentness.Context do
   defp build(attrs) do
     artifact_integrity = Map.get(attrs, :artifact_integrity_by_id, %{})
 
-    with :ok <- validate_integrity_map(artifact_integrity),
+    with :ok <- validate_required_binary(attrs, :current_subject_state_digest),
+         :ok <- validate_required_binary(attrs, :current_repository_state_digest),
+         :ok <- validate_required_binary(attrs, :current_evaluator_digest),
+         :ok <- validate_required_binary(attrs, :evaluated_at),
          :ok <- validate_optional_string(:current_patch_id, attrs),
          :ok <- validate_optional_string(:current_patch_digest, attrs),
          :ok <- validate_optional_string(:current_patch_result_digest, attrs),
          :ok <- validate_optional_string(:current_host_profile_digest, attrs),
          :ok <- validate_optional_string(:current_command_registration_digest, attrs),
          :ok <- validate_optional_string(:current_command_result_id, attrs),
-         :ok <- validate_optional_string(:invalidated_at, attrs) do
+         :ok <- validate_optional_string(:invalidated_at, attrs),
+         :ok <- validate_integrity_map(artifact_integrity) do
       {:ok,
        %__MODULE__{
          current_subject_state_digest: Map.fetch!(attrs, :current_subject_state_digest),
@@ -111,8 +115,49 @@ defmodule Kiln.Evidence.Currentness.Context do
     end
   end
 
+  # Required digest-like or timestamp fields must be non-empty binaries.
+  # The plan does not impose specific digest-shape checks at the Context
+  # boundary; that is the responsibility of the caller that knows the
+  # exact current bindings.
+  defp validate_required_binary(attrs, key) do
+    case Map.fetch!(attrs, key) do
+      value when is_binary(value) ->
+        if byte_size(value) == 0 do
+          {:error, {:empty_required_field, key}}
+        else
+          :ok
+        end
+
+      _other ->
+        {:error, {:wrong_type_required_field, key}}
+    end
+  end
+
+  # Optional fields accept `nil` or a non-empty binary. The Context API
+  # explicitly promises string-or-nil for these plan-declared nullable
+  # bindings and never accepts arbitrary types.
+  defp validate_optional_string(key, attrs) do
+    case Map.get(attrs, key) do
+      nil ->
+        :ok
+
+      value when is_binary(value) ->
+        if byte_size(value) == 0 do
+          {:error, {:empty_optional_field, key}}
+        else
+          :ok
+        end
+
+      _other ->
+        {:error, {:wrong_type_optional_field, key}}
+    end
+  end
+
   defp validate_integrity_map(value) when is_map(value) do
     cond do
+      not Enum.all?(value, fn {k, _} -> is_binary(k) end) ->
+        {:error, :invalid_artifact_integrity}
+
       not Enum.all?(value, fn {_, v} ->
         v in [:verified, :corrupt, :missing, :unknown]
       end) ->
@@ -124,8 +169,6 @@ defmodule Kiln.Evidence.Currentness.Context do
   end
 
   defp validate_integrity_map(_), do: {:error, :invalid_artifact_integrity}
-
-  defp validate_optional_string(_key, _attrs), do: :ok
 end
 
 defmodule Kiln.Evidence.Currentness do
@@ -340,8 +383,11 @@ defmodule Kiln.Evidence.Currentness do
             []
 
           members ->
+            opposing = opposing_result(candidate.result)
+
             members
             |> Enum.reject(&(&1.evidence_id == candidate.evidence_id))
+            |> Enum.filter(&opposing_result?(&1.result, opposing))
             |> Enum.map(& &1.evidence_id)
             |> Enum.uniq()
             |> Enum.sort()
@@ -349,6 +395,19 @@ defmodule Kiln.Evidence.Currentness do
         end
     end
   end
+
+  # A candidate is contradicted only by members whose result is incompatible
+  # with the candidate's result. `:pass` only contradicts `:fail` and vice
+  # versa; same-result records share a group because they share a composite
+  # binding but they are not contradictions of one another.
+  defp opposing_result(:pass), do: :fail
+  defp opposing_result(:fail), do: :pass
+  defp opposing_result(_), do: nil
+
+  defp opposing_result?(_member_result, nil), do: false
+
+  defp opposing_result?(member_result, opposing),
+    do: member_result == opposing
 
   defp invalidated_at(context, _candidate), do: context.invalidated_at
 end
