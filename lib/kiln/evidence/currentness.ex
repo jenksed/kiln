@@ -115,6 +115,23 @@ defmodule Kiln.Evidence.Currentness.Context do
     end
   end
 
+  defp validate_integrity_map(value) when is_map(value) do
+    cond do
+      not Enum.all?(value, fn {k, _} -> is_binary(k) end) ->
+        {:error, :invalid_artifact_integrity}
+
+      not Enum.all?(value, fn {_, v} ->
+        v in [:verified, :corrupt, :missing, :unknown]
+      end) ->
+        {:error, :invalid_artifact_integrity}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_integrity_map(_), do: {:error, :invalid_artifact_integrity}
+
   # Required digest-like or timestamp fields must be non-empty binaries.
   # The plan does not impose specific digest-shape checks at the Context
   # boundary; that is the responsibility of the caller that knows the
@@ -152,23 +169,6 @@ defmodule Kiln.Evidence.Currentness.Context do
         {:error, {:wrong_type_optional_field, key}}
     end
   end
-
-  defp validate_integrity_map(value) when is_map(value) do
-    cond do
-      not Enum.all?(value, fn {k, _} -> is_binary(k) end) ->
-        {:error, :invalid_artifact_integrity}
-
-      not Enum.all?(value, fn {_, v} ->
-        v in [:verified, :corrupt, :missing, :unknown]
-      end) ->
-        {:error, :invalid_artifact_integrity}
-
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_integrity_map(_), do: {:error, :invalid_artifact_integrity}
 end
 
 defmodule Kiln.Evidence.Currentness do
@@ -383,11 +383,8 @@ defmodule Kiln.Evidence.Currentness do
             []
 
           members ->
-            opposing = opposing_result(candidate.result)
-
             members
             |> Enum.reject(&(&1.evidence_id == candidate.evidence_id))
-            |> Enum.filter(&opposing_result?(&1.result, opposing))
             |> Enum.map(& &1.evidence_id)
             |> Enum.uniq()
             |> Enum.sort()
@@ -395,19 +392,6 @@ defmodule Kiln.Evidence.Currentness do
         end
     end
   end
-
-  # A candidate is contradicted only by members whose result is incompatible
-  # with the candidate's result. `:pass` only contradicts `:fail` and vice
-  # versa; same-result records share a group because they share a composite
-  # binding but they are not contradictions of one another.
-  defp opposing_result(:pass), do: :fail
-  defp opposing_result(:fail), do: :pass
-  defp opposing_result(_), do: nil
-
-  defp opposing_result?(_member_result, nil), do: false
-
-  defp opposing_result?(member_result, opposing),
-    do: member_result == opposing
 
   defp invalidated_at(context, _candidate), do: context.invalidated_at
 end
