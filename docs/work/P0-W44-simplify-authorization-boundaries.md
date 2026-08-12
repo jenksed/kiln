@@ -26,7 +26,7 @@ This package contains no runtime, test, migration, schema, or enforcement-script
 | Authorization state manually propagated across many documents | `AGENTS.md`, `README.md`, `docs/PLANNING.md`, `docs/ROADMAP.md`, `docs/IMPLEMENTATION-SLICES.md`, `docs/IMPLEMENTATION-AUTHORIZATION.md` | observed duplication |
 | Preflight currently validates authorization record, plan digest, owner, base, branch/work-package alignment; does not validate package topology against the canonical base | `scripts/agent-preflight` | observed enforcement gap |
 | Trusted owner registry | `docs/authorizations/TRUSTED-OWNERS` | `Joshua Jenks` |
-| Runtime on canonical `main` | no P1-S02 implementation path present | unchanged |
+| Runtime on canonical `main` | no P1-S02 runtime implementation is integrated on canonical main | observed |
 
 ## Owner decision
 
@@ -298,7 +298,7 @@ No other path is changed by this package.
 - **P0-W44-AC03 — Package topology is governance-only**
   - **Given** the final branch diff against canonical `main` `2f88281`;
   - **When** it is inspected for scope leakage;
-  - **Then** the diff is limited to the four files named in this plan's file table, contains no file under `lib/`, `test/`, `priv/`, `config/`, `mix.exs`, `mix.lock`, or any preflight / enforcement script, and contains no implementation branch ancestry.
+  - **Then** the diff is limited to the five files named in this plan's file table, contains no file under `lib/`, `test/`, `priv/`, `config/`, `mix.exs`, `mix.lock`, or any preflight / enforcement script, and contains no implementation branch ancestry.
   - **Evidence:** `git diff --name-only origin/main..HEAD`.
 - **P0-W44-AC04 — Existing T01 plan amended only by named edits and authorization record digest re-bound**
   - **Given** the final plan and authorization record blobs;
@@ -449,5 +449,5 @@ No new governance mechanism may be introduced before P1-S02-T01 completes unless
 | --- | --- | --- |
 | Owner adjudication | Granted | recorded at `2026-08-11T13:00:00-04:00` against canonical `main` `2f88281527811b8c4be0243fb201ae4416730a13` |
 | Governance change | Prepared | pending owner review and merge |
-| T01 implementation | Not started | permitted immediately after this package integrates |
+| T01 implementation | Checkpoint exists; execution paused | Layer 2 implementation checkpoint at `05423aa2a8fdbe65952a41c80159d0f61204beeb` exists on `work/p1-s02-t01-artifact-evidence-substrate-v2`; it is not integrated on canonical `main`; it remains untouched by P0-W44; execution may resume only after this package integrates and the implementation branch is moved / reconciled against the resulting canonical authority |
 | Project Arsenal defect | Reported | two follow-ups recorded; both deferred until after T01 Layer 3 |
