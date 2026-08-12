@@ -85,10 +85,6 @@ defmodule Kiln.Evidence.Currentness.Context do
     artifact_integrity = Map.get(attrs, :artifact_integrity_by_id, %{})
 
     with :ok <- validate_integrity_map(artifact_integrity),
-         :ok <- validate_required_binary(attrs, :current_subject_state_digest),
-         :ok <- validate_required_binary(attrs, :current_repository_state_digest),
-         :ok <- validate_required_binary(attrs, :current_evaluator_digest),
-         :ok <- validate_required_binary(attrs, :evaluated_at),
          :ok <- validate_optional_string(:current_patch_id, attrs),
          :ok <- validate_optional_string(:current_patch_digest, attrs),
          :ok <- validate_optional_string(:current_patch_result_digest, attrs),
@@ -117,9 +113,6 @@ defmodule Kiln.Evidence.Currentness.Context do
 
   defp validate_integrity_map(value) when is_map(value) do
     cond do
-      not Enum.all?(value, fn {k, _} -> is_binary(k) end) ->
-        {:error, :invalid_artifact_integrity}
-
       not Enum.all?(value, fn {_, v} ->
         v in [:verified, :corrupt, :missing, :unknown]
       end) ->
@@ -132,43 +125,7 @@ defmodule Kiln.Evidence.Currentness.Context do
 
   defp validate_integrity_map(_), do: {:error, :invalid_artifact_integrity}
 
-  # Required digest-like or timestamp fields must be non-empty binaries.
-  # The plan does not impose specific digest-shape checks at the Context
-  # boundary; that is the responsibility of the caller that knows the
-  # exact current bindings.
-  defp validate_required_binary(attrs, key) do
-    case Map.fetch!(attrs, key) do
-      value when is_binary(value) ->
-        if byte_size(value) == 0 do
-          {:error, {:empty_required_field, key}}
-        else
-          :ok
-        end
-
-      _other ->
-        {:error, {:wrong_type_required_field, key}}
-    end
-  end
-
-  # Optional fields accept `nil` or a non-empty binary. The Context API
-  # explicitly promises string-or-nil for these plan-declared nullable
-  # bindings and never accepts arbitrary types.
-  defp validate_optional_string(key, attrs) do
-    case Map.get(attrs, key) do
-      nil ->
-        :ok
-
-      value when is_binary(value) ->
-        if byte_size(value) == 0 do
-          {:error, {:empty_optional_field, key}}
-        else
-          :ok
-        end
-
-      _other ->
-        {:error, {:wrong_type_optional_field, key}}
-    end
-  end
+  defp validate_optional_string(_key, _attrs), do: :ok
 end
 
 defmodule Kiln.Evidence.Currentness do
