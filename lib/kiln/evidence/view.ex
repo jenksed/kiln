@@ -140,4 +140,39 @@ defmodule Kiln.Evidence.View do
          patch_result_digest: rd
        }),
        do: {id, digest, rd}
+
+  @doc """
+  Project a first-month conformance evidence map.
+
+  Emits exactly the subset defined by `docs/contracts/kiln-first-month.schema.json`:
+  `kind`, `evidence_id`, `criterion_id`, `status`, `freshness`,
+  `completeness`, `contradiction`, `repository_state_digest`, and
+  `record_digest`. The stored `result` is mapped to `status`; every other
+  field is read directly. The projection is pure and cannot mutate the
+  stored record or promote its result (P1-S02-T01-R07, AC05).
+  """
+  @spec to_first_month(t()) :: %{
+          required(:kind) => :evidence,
+          required(:evidence_id) => String.t(),
+          required(:criterion_id) => String.t(),
+          required(:status) => Kiln.Evidence.result(),
+          required(:freshness) => freshness(),
+          required(:completeness) => Kiln.Evidence.completeness(),
+          required(:contradiction) => contradiction(),
+          required(:repository_state_digest) => String.t(),
+          required(:record_digest) => String.t()
+        }
+  def to_first_month(%__MODULE__{} = view) do
+    %{
+      kind: :evidence,
+      evidence_id: view.evidence_id,
+      criterion_id: view.criterion_id,
+      status: view.status,
+      freshness: view.freshness,
+      completeness: view.completeness,
+      contradiction: view.contradiction,
+      repository_state_digest: view.repository_state_digest,
+      record_digest: view.record_digest
+    }
+  end
 end
