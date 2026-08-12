@@ -116,10 +116,10 @@ A third-party development dependency that the Claude coding agent consumes at bu
 
 - Submodule path: `.claude/dependencies/project-arsenal`
 - Submodule URL: `https://github.com/jenksed/project-arsenal.git`
-- Pinned commit: `ecc8797d45447060b0c4aacd8efb6b1909e9e690`
+- Pinned commit: `980a58d331f4ed0679e6ae306b9d55b2ee21d179`
 - Reviewed lockfile digests (from `.claude/dependencies/project-arsenal/.arsenal.lock`):
-  - plan: `sha256:468117f9c6397003522b62c1e7db6d4869a7cbfe0ed7614c8bb9244d9e91059d`
-  - repository-truth package: `sha256:1c6f8c72582c10d53475c0c865a2ee31fce20a2bbe7582198f510091470f3f84`
+  - plan: `sha256:8284fab44cd6f27d7e5533f79b6b64f5feffb1590ae569c623983180e4c76c9f`
+  - repository-truth package: `sha256:741905b11ff97ec44da34cf17a3f9ab418b3973103e7aa21c6d2bf3b9fb1e310`
 - Claude skill path: `.claude/skills/repository-truth` (tracked symbolic link to `<submodule>/distribution/agent-skills/repository-truth`)
 - Verifier: `scripts/check-project-arsenal-dependency` is invoked from `scripts/validate-agent-assets` after the existing Kiln-owned asset and doctrine checks.
 
@@ -151,3 +151,12 @@ The Kiln asset contract (`invocation` and `status` fields, fixed name convention
 - No `CODEOWNERS` or `SECURITY.md`; the upstream trust model collapses to the same author as Kiln.
 - The upstream `HEAD` at adoption is a GitHub merge commit; pinning combines a commit SHA and the lockfile digests, both checked deterministically.
 - The upstream installer targets `.agents/skills/` rather than Claude Code's `.claude/skills/`. Kiln does not invoke the upstream installer and exposes the package only through the tracked symlink.
+
+### Pin updates
+
+| Work package | Pinned commit | Reviewed lockfile plan digest | Reviewed repository-truth package digest |
+| --- | --- | --- | --- |
+| P0-W39 (initial adoption) | `ecc8797d45447060b0c4aacd8efb6b1909e9e690` | `sha256:468117f9c6397003522b62c1e7db6d4869a7cbfe0ed7614c8bb9244d9e91059d` | `sha256:1c6f8c72582c10d53475c0c865a2ee31fce20a2bbe7582198f510091470f3f84` |
+| P0-W45 (GC01 main update) | `980a58d331f4ed0679e6ae306b9d55b2ee21d179` | `sha256:8284fab44cd6f27d7e5533f79b6b64f5feffb1590ae569c623983180e4c76c9f` | `sha256:741905b11ff97ec44da34cf17a3f9ab418b3973103e7aa21c6d2bf3b9fb1e310` |
+
+Each pin update is a separate reviewed work package. The historical evidence for P0-W39 (initial adoption) lives in `docs/work/P0-W39-adopt-project-arsenal-dependency.md` and is not rewritten.

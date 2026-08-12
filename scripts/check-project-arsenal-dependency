@@ -27,10 +27,10 @@ fail() {
 root=$(git rev-parse --show-toplevel 2>/dev/null) || fail "not inside a Git repository"
 cd "$root"
 
-Pinned_Commit="ecc8797d45447060b0c4aacd8efb6b1909e9e690"
+Pinned_Commit="980a58d331f4ed0679e6ae306b9d55b2ee21d179"
 Pinned_Url="https://github.com/jenksed/project-arsenal.git"
-Plan_Digest="sha256:468117f9c6397003522b62c1e7db6d4869a7cbfe0ed7614c8bb9244d9e91059d"
-Package_Digest="sha256:1c6f8c72582c10d53475c0c865a2ee31fce20a2bbe7582198f510091470f3f84"
+Plan_Digest="sha256:8284fab44cd6f27d7e5533f79b6b64f5feffb1590ae569c623983180e4c76c9f"
+Package_Digest="sha256:741905b11ff97ec44da34cf17a3f9ab418b3973103e7aa21c6d2bf3b9fb1e310"
 
 Submodule_Path=".claude/dependencies/project-arsenal"
 Symlink_Path=".claude/skills/repository-truth"
