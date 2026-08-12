@@ -429,6 +429,18 @@ No new governance mechanism may be introduced before P1-S02-T01 completes unless
 - No reissuing of the authorization record with new authorization scope or new owner decision. The authorization record IS updated to bind the post-amendment plan digest because plan / authorization integrity is a required safety property and the plan body was amended by this package. The change is a digest re-binding, not a new authorization.
 - No prediction or invention of the canonical integration commit produced by merging this package.
 
+## Required completion Evidence
+
+| Evidence ID | Acceptance criterion | Required Evidence |
+| --- | --- | --- |
+| P0-W44-E01 | P0-W44-AC01 | plan text proving the closing sentence no longer claims exhaustive authority, the table is described as review guidance, and `lib/kiln/artifact/fs.ex` is acknowledged as a subordinate decomposition |
+| P0-W44-E02 | P0-W44-AC02 | plan text and AGENTS.md text proving OWNER-DECISION-REQUIRED, DETERMINISTIC IMPLEMENTATION DISCRETION, and DETERMINISTIC GOVERNANCE RECONCILIATION categories appear |
+| P0-W44-E03 | P0-W44-AC03 | `git diff --name-only origin/main..HEAD` proving the diff is limited to the named files and contains no runtime branch ancestry |
+| P0-W44-E04 | P0-W44-AC04 | `git diff origin/main -- docs/work/P1-S02-T01-artifact-evidence-substrate.md` and `git diff origin/main -- docs/authorizations/P1-S02-T01.authorization` |
+| P0-W44-E05 | P0-W44-AC05 | `git diff origin/main -- README.md docs/PLANNING.md docs/ROADMAP.md docs/IMPLEMENTATION-SLICES.md` empty |
+| P0-W44-E06 | P0-W44-AC06 | exit codes from the deterministic verification suite |
+| P0-W44-E07 | P0-W44-AC07 | `git rev-parse origin/work/p1-s02-t01-artifact-evidence-substrate-v2` equals `05423aa`; `git stash list` still contains the rescue entry; `rescue/pre-verification-stash` still exists |
+
 ## Completion record
 
 **Result:** Prepared for owner review. Not merged, not implemented, not verified.
