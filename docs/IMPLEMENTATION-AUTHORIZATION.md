@@ -2,7 +2,7 @@
 
 **Document type:** Current implementation-authorization authority
 **Status:** Accepted
-**Current result:** P0-W43 reissues the bounded P1-S02-T01 implementation authorization in `docs/authorizations/P1-S02-T01.authorization` against canonical decision base `1243b8f27a594c9440638964a83b56c74774ba28` and amended Accepted-state plan digest `7dfd3b3ad600e67b110ad6eaec12a06880494958027910289250453c6ade662e`. The amended plan and reissued record become active trusted Repository authority only when P0-W43 integrates on canonical `main`; until then the P0-W42 record remains active. No P1-S02 runtime implementation exists yet; P1-S02-T02 and later remain unauthorized
+**Current result:** P0-W44 amends the P1-S02-T01 accepted plan to add the implementation authorization model (semantic-scope authorization, advisory expected-files table, OWNER-DECISION-REQUIRED and DETERMINISTIC categories, and explicit adjudication that `lib/kiln/artifact/fs.ex` is a subordinate decomposition requiring no additional authorization). The plan amendment changes the plan SHA-256; `docs/authorizations/P1-S02-T01.authorization` is updated to re-bind the new plan digest against the unchanged P0-W43 decision base `1243b8f27a594c9440638964a83b56c74774ba28` (no new authorization scope; same owner, decision base, `authorized_at`, scope text, and canonical key order). The further-amended plan and re-bound record become active trusted Repository authority only when P0-W44 integrates on canonical `main`; until then the P0-W43 record remains active. No P1-S02 runtime implementation is integrated on canonical main (a Layer 2 checkpoint at `05423aa2a8fdbe65952a41c80159d0f61204beeb` exists off canonical `main` on `work/p1-s02-t01-artifact-evidence-substrate-v2`; it is untouched by P0-W44 and execution is paused); P1-S02-T02 and later remain unauthorized
 
 An accepted plan describes work. An authorization record permits one bounded implementation package to begin. Passing CI, a pull-request body, an available branch, generated code, or an implementation Claim does not substitute for either.
 
@@ -62,3 +62,13 @@ Planning work under `work/p<phase>-w<work>-*` can create or amend proposed imple
 - The next legitimate action after P0-W43 integrates is to observe and record the resulting canonical integration commit, move `work/p1-s02-t01-artifact-evidence-substrate-v2` to it, verify blob identity, and begin implementation within the amended authorized surface. That commit is unknown until the merge occurs and must not be predicted. PR #48 must remain closed and unmerged. P1-S02-T02 and later remain unauthorized.
 
 Authorization is effective only while the exact record and accepted plan remain active at trusted canonical `main` and unchanged in the explicit implementation commit. Revocation or supersession requires a governance change that updates or removes the trusted record before further implementation proceeds.
+
+## Document roles (P0-W44)
+
+Normative authority is the accepted technical contract inside an Accepted plan, the machine-readable authorization record (`docs/authorizations/*.authorization`), the trusted-owner authority (`docs/authorizations/TRUSTED-OWNERS`), and explicitly designated governance policy. Preflight consumes these directly.
+
+Derived status / index prose — README.md current-state summaries, ROADMAP.md status, PLANNING.md next-action prose, IMPLEMENTATION-SLICES.md summaries, and the AGENTS.md authority-boundary narrative — summarize normative state but do not independently grant or revoke authority. Corrections to derived prose are DETERMINISTIC GOVERNANCE RECONCILIATION and do not require owner reauthorization.
+
+Historical provenance records describe what happened at a prior point and are not rewritten merely because current state changed.
+
+Narrative / design documentation explains architecture and rationale and does not independently authorize implementation unless explicitly designated normative.

@@ -410,7 +410,7 @@ Any unclassified filesystem or database effect returns `unknown` or integrity fa
 | `test/kiln/store_test.exs` | ready Store Artifact-root and restart coverage | Proposed |
 | `scripts/diagnostics/p1-s01-store-host` | additive 0003/0004 owner-machine observations | Proposed only if the existing diagnostic requires it |
 
-No other path is authorized. Discovery that another path is necessary requires plan adjudication before implementation continues.
+This table is **review guidance**, not an authorization boundary, unless a specific row is explicitly marked protected. Authorized scope is determined by the capabilities, security and trust boundaries, durable and external contracts, and ticket / product scope described elsewhere in this plan, in `AGENTS.md`, and in `docs/IMPLEMENTATION-AUTHORIZATION.md`. An implementation agent may add, split, rename, or reorganize subordinate implementation files (for example, `lib/kiln/artifact/fs.ex` as a legitimate decomposition of T01 Artifact filesystem publication) when the change implements an already-authorized capability or contract, introduces no new capability, changes no accepted persistence or API contract, expands no security / trust boundary, enters no later ticket scope, and violates no explicitly protected path. PR #48 remains rejected. `lib/kiln/store/migrations.ex` compound-statement support remains narrowly authorized per `P1-S02-T01-R16`. Discovery that a new capability, contract change, security-boundary expansion, scope expansion, or genuinely discretionary owner choice is required does require owner adjudication before implementation continues.
 
 ## Migration and rollback contract
 
@@ -516,6 +516,26 @@ Each migration runs in the existing migration runner's own immediate transaction
   - **When** the runner discovers and applies them against fresh and upgraded stores;
   - **Then** migrations 0001 through 0003 apply with identical checksums and an identical executed statement sequence, the trigger is created and fires, exactly 16,384 aggregate warning bytes commit, 16,385 aggregate bytes abort the statement, and a failed compound migration records no `schema_migrations` checksum.
   - **Evidence:** statement-splitter unit matrix, trigger creation and firing fixtures, aggregate boundary pair, checksum and statement-sequence stability proof, and failed-compound-migration rollback proof.
+
+## Owner-escalation and discretion categories
+
+### OWNER-DECISION-REQUIRED
+
+Implementation MUST stop and request owner adjudication when any one of these categories is encountered:
+
+1. **New capability.** The implementation needs to do something not already permitted by this work package (network access, Repository source read, Command execution, automatic deletion, provider interaction, background processing, etc.).
+2. **Accepted contract change.** The implementation cannot satisfy the accepted requirement without changing a technical contract (Evidence semantics, canonical record identity, schema shape, transaction semantics, idempotency semantics, durability guarantees, accepted vocabulary, externally observable API semantics).
+3. **Security / trust-boundary expansion.** Broader filesystem authority, new credentials, new external system, new caller-controlled path, destructive behavior, or weakened integrity guarantee.
+4. **Ticket / scope expansion.** T02 behavior required during T01, Gate work appearing during Evidence substrate implementation, or a later Wave capability becoming necessary.
+5. **Genuine discretionary owner choice.** Two or more materially different valid strategies exist and choosing among them changes product architecture, risk, contract, cost, or future direction.
+
+### DETERMINISTIC IMPLEMENTATION DISCRETION
+
+Agents may proceed without owner reauthorization for: adding a private or subordinate helper module; splitting a large module into focused modules; moving private implementation code between modules; introducing additional test files inside the authorized test subtree; adding fixtures inside the authorized work; renaming private functions; improving internal decomposition; choosing among equivalent private algorithms where contract / security behavior is unchanged; strengthening an implementation while remaining inside accepted semantics. `lib/kiln/artifact/fs.ex` is one such decomposition of the already-authorized T01 Artifact filesystem publication responsibility and required no additional authorization. These actions still require tests and review.
+
+### DETERMINISTIC GOVERNANCE RECONCILIATION
+
+Agents may repair a governance projection without owner adjudication when the correct state is uniquely determined by accepted authority, no capability or technical contract changes, no authorization scope expands, and no discretionary policy choice exists. Examples: replacing stale "T01 unauthorized" prose after T01 has been authorized; correcting "base commit" vs "integration commit" terminology when the repository contains the exact facts; updating derived indexes, links, and next-action sentences; correcting obvious clerical inconsistencies.
 
 ## Deterministic verification
 

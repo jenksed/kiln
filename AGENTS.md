@@ -41,9 +41,37 @@ PR #48 candidate commit `60367874bfc3c0e6d8cbd736f58e1ae17938943b` was premature
 
 P0-W43 adjudicates a discovered incompatibility between the accepted T01 plan and the migration runner: the runner splits migration SQL on `;`, which shreds a SQLite trigger body, so migration 0004 could not create the aborting aggregate `evidence_warnings` constraint the plan requires. The owner preserved the Evidence contract, narrowly authorized `lib/kiln/store/migrations.ex` for compound-statement support in `statements/1` only, added P1-S02-T01-R16 and P1-S02-T01-AC15, and reissued `docs/authorizations/P1-S02-T01.authorization` against amended plan digest `7dfd3b3ad600e67b110ad6eaec12a06880494958027910289250453c6ade662e`, decision base `1243b8f27a594c9440638964a83b56c74774ba28`, and `authorized_at=2026-08-10T23:06:00-04:00`. The amended plan and reissued record are contained in P0-W43, not at the decision base, and become active trusted authority only when P0-W43 integrates on canonical `main`.
 
-The exact next decision after P0-W43 integrates is to observe and record the resulting canonical integration commit, then move the existing clean T01 implementation branch `work/p1-s02-t01-artifact-evidence-substrate-v2` to it. That commit is unknown until the merge occurs and must not be predicted. The branch must verify the amended plan and reissued authorization record are byte-identical to trusted canonical `main` and implement only the amended accepted/authorized T01 scope. PR #48 must remain closed and unmerged. P1-S02-T02 and later remain unauthorized.
+P0-W44 simplifies the implementation authorization model: replaces source-topology authorization with semantic-scope authorization, makes the plan's expected-files table advisory by default, records the OWNER-DECISION-REQUIRED / DETERMINISTIC categories, and adjudicates that `lib/kiln/artifact/fs.ex` is a legitimate subordinate decomposition requiring no additional authorization. The P0-W44 amendment to the T01 plan changes the plan digest; `docs/authorizations/P1-S02-T01.authorization` is updated to re-bind the new plan digest (no new authorization scope; same owner, base, time-bounded semantics). The re-bound record becomes active trusted authority only when P0-W44 integrates on canonical `main`.
+
+The exact next decision after P0-W44 integrates is to observe and record the resulting canonical integration commit, then move the existing clean T01 implementation branch `work/p1-s02-t01-artifact-evidence-substrate-v2` to it. That commit is unknown until the merge occurs and must not be predicted. The branch must verify the further-amended plan and re-bound authorization record are byte-identical to trusted canonical `main` and implement only the further-amended accepted/authorized T01 scope. PR #48 must remain closed and unmerged. P1-S02-T02 and later remain unauthorized.
 
 Follow `docs/ROADMAP.md`, the current accepted ticket plan, and exact prerequisite Evidence to determine whether any further P1-S02 ticket may proceed.
+
+## Implementation authorization model (P0-W44)
+
+Authorization binds **semantic scope** — capabilities, security and trust boundaries, durable / external contracts, ticket / product scope — not arbitrary source topology. The expected-files table in an accepted plan is review guidance unless a specific row is explicitly marked protected. An implementation agent may add, split, rename, or reorganize subordinate implementation files (for example, `lib/kiln/artifact/fs.ex` as a legitimate decomposition of T01 Artifact filesystem publication) when the change implements an already-authorized capability or contract, introduces no new capability, changes no accepted persistence or API contract, expands no security / trust boundary, enters no later ticket scope, and violates no explicitly protected path.
+
+### OWNER-DECISION-REQUIRED
+
+Stop and request owner adjudication when any one of these categories is encountered:
+
+1. **New capability.** Network access, Repository source read, Command execution, automatic deletion, provider interaction, background processing, or any capability not already permitted by the work package.
+2. **Accepted contract change.** Evidence semantics, canonical record identity, schema shape, transaction semantics, idempotency semantics, durability guarantees, accepted vocabulary, externally observable API semantics.
+3. **Security / trust-boundary expansion.** Broader filesystem authority, new credentials, new external system, new caller-controlled path, destructive behavior, weakened integrity guarantee.
+4. **Ticket / scope expansion.** T02 behavior required during T01; Gate work appearing during Evidence substrate implementation; a later Wave capability becoming necessary.
+5. **Genuine discretionary owner choice.** Two or more materially different valid strategies where choosing among them changes product architecture, risk, contract, cost, or future direction.
+
+### DETERMINISTIC IMPLEMENTATION DISCRETION
+
+Agents may proceed without owner reauthorization for ordinary implementation decomposition: adding a private or subordinate helper module; splitting a large module into focused modules; moving private implementation code between modules; introducing additional test files inside the authorized test subtree; adding fixtures; renaming private functions; improving internal decomposition; choosing among equivalent private algorithms where contract / security behavior is unchanged; strengthening an implementation while remaining inside accepted semantics. These actions still require tests and review.
+
+### DETERMINISTIC GOVERNANCE RECONCILIATION
+
+Agents may repair a governance projection without owner adjudication when the correct state is uniquely determined by accepted authority, no capability or technical contract changes, no authorization scope expands, and no discretionary policy choice exists — for example, replacing stale "T01 unauthorized" prose after T01 has been authorized; correcting "base commit" vs "integration commit" terminology when the repository contains the exact facts; updating derived indexes, links, and next-action sentences; correcting obvious clerical inconsistencies.
+
+### Required safety properties that survive this simplification
+
+Explicit owner-controlled authorization; accepted technical contract; trusted canonical authority source; plan / authorization integrity; PR #48 prohibition; no P1-S02-T02 or later authorization; no unauthorized capability expansion; no silent persistence-contract changes; no security-boundary expansion; exact implementation ancestry / Evidence; deterministic verification; completion requiring current Evidence.
 
 ## Required start sequence
 
