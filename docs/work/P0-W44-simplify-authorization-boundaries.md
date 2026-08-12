@@ -206,6 +206,18 @@ Examples:
 
 These corrections should ideally be generated or validated automatically. They must not interrupt implementation unless the stale representation itself creates an unsafe ambiguity for enforcement.
 
+## Requirements
+
+- **P0-W44-R01:** The T01 plan's `Expected files or components` table shall be advisory by default unless a specific row is explicitly marked protected. Ordinary implementation decomposition (for example, `lib/kiln/artifact/fs.ex`) shall require no additional authorization when it implements an already-authorized capability or contract, introduces no new capability, changes no accepted persistence or API contract, expands no security / trust boundary, enters no later ticket scope, and violates no explicitly protected path.
+- **P0-W44-R02:** The amended T01 plan shall include the OWNER-DECISION-REQUIRED, DETERMINISTIC IMPLEMENTATION DISCRETION, and DETERMINISTIC GOVERNANCE RECONCILIATION categories exactly as named in this plan.
+- **P0-W44-R03:** `AGENTS.md` shall gain a short new section describing the new authorization model, the OWNER-DECISION-REQUIRED list, the DETERMINISTIC categories, and the required safety properties.
+- **P0-W44-R04:** `docs/IMPLEMENTATION-AUTHORIZATION.md` shall gain a short note distinguishing normative authority from derived status / index prose.
+- **P0-W44-R05:** The authorization record `docs/authorizations/P1-S02-T01.authorization` shall be re-bound to the post-amendment plan SHA-256 because plan / authorization integrity is a required safety property and the plan body was amended. The re-bind is a digest update, not a new authorization. Every other field and the canonical key order shall remain unchanged.
+- **P0-W44-R06:** README.md, PLANNING.md, ROADMAP.md, and IMPLEMENTATION-SLICES.md shall not be modified by this package. Their corrections are deferred to deterministic governance reconciliation after merge.
+- **P0-W44-R07:** This package shall change no Elixir source, migration, schema, test, or preflight / enforcement script.
+- **P0-W44-R08:** The T01 implementation branch `work/p1-s02-t01-artifact-evidence-substrate-v2` at `05423aa` and the rescue stash / rescue ref shall remain untouched.
+- **P0-W44-R09:** Two enforcement follow-ups (package-topology validation against `merge-base(canonical_base, HEAD)..HEAD`; plan-manifest machine-readable representation) shall be recorded but explicitly out of scope for this package. They shall not block T01 implementation.
+
 ## Document roles
 
 Normative authority vs derived status must be separated:
