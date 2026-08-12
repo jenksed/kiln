@@ -65,6 +65,21 @@ This simplification MUST preserve every one of these properties. They are not ne
 11. Deterministic verification (preflight, validators, format, compile, xref, tests, prose lints).
 12. Completion requiring current Evidence.
 
+## Assumptions and unknowns
+
+### Assumptions
+
+- **P0-W44-A01:** The plan body amendment changes the plan SHA-256. Plan / authorization integrity is a required safety property, so the authorization record must be re-bound to the post-amendment digest in the same governance change. The re-bind is a digest update, not a new authorization scope.
+- **P0-W44-A02:** The new authorization model changes only the granularity at which owner adjudication is required. It does not modify any T01 technical contract.
+- **P0-W44-A03:** Mutable downstream prose (README.md, PLANNING.md, ROADMAP.md, IMPLEMENTATION-SLICES.md) is corrected by deterministic governance reconciliation after this package integrates. It is not smuggled into this package.
+- **P0-W44-A04:** The T01 implementation branch at `05423aa` is preserved unchanged. T01 implementation can resume immediately after this package integrates.
+- **P0-W44-A05:** Two enforcement follow-ups (package-topology validation against `merge-base(canonical_base, HEAD)..HEAD`; plan-manifest machine-readable representation) are recorded but explicitly out of scope for this package. They do not block T01 implementation.
+
+### Unknowns
+
+- **P0-W44-U01:** The exact structural format for separating digest-bound technical contract from mutable lifecycle metadata in future plan revisions is not decided here. The doctrine is established; the structural migration is a bounded follow-up.
+- **P0-W44-U02:** The preflight enforcement follow-ups may be addressed as a single follow-up governance ticket or as separate tickets; that is an implementation choice for the future ticket.
+
 ## New authorization model
 
 Authorization binds **semantic scope**, not arbitrary source topology.
