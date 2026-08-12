@@ -84,7 +84,8 @@ defmodule Kiln.Evidence.Currentness.Context do
   defp build(attrs) do
     artifact_integrity = Map.get(attrs, :artifact_integrity_by_id, %{})
 
-    with :ok <- validate_required_binary(attrs, :current_subject_state_digest),
+    with :ok <- validate_integrity_map(artifact_integrity),
+         :ok <- validate_required_binary(attrs, :current_subject_state_digest),
          :ok <- validate_required_binary(attrs, :current_repository_state_digest),
          :ok <- validate_required_binary(attrs, :current_evaluator_digest),
          :ok <- validate_required_binary(attrs, :evaluated_at),
@@ -94,8 +95,7 @@ defmodule Kiln.Evidence.Currentness.Context do
          :ok <- validate_optional_string(:current_host_profile_digest, attrs),
          :ok <- validate_optional_string(:current_command_registration_digest, attrs),
          :ok <- validate_optional_string(:current_command_result_id, attrs),
-         :ok <- validate_optional_string(:invalidated_at, attrs),
-         :ok <- validate_integrity_map(artifact_integrity) do
+         :ok <- validate_optional_string(:invalidated_at, attrs) do
       {:ok,
        %__MODULE__{
          current_subject_state_digest: Map.fetch!(attrs, :current_subject_state_digest),
