@@ -741,10 +741,14 @@ defmodule Kiln.Evidence do
   end
 
   defp compute_record_digest(record) do
+    # record_digest covers the complete immutable Evidence payload excluding
+    # `evidence_id`, `idempotency_key`, `request_digest`, and `record_digest`.
+    # Two records with the same binding content but distinct identifiers or
+    # request digests therefore receive the same record_digest.
     canonical =
       record
       |> Map.from_struct()
-      |> Map.delete(:record_digest)
+      |> Map.drop([:evidence_id, :idempotency_key, :request_digest, :record_digest])
       |> stringify_values()
 
     Map.put(record, :record_digest, Kiln.Store.Canonical.digest(@schema, canonical))

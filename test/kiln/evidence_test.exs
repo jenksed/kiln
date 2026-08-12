@@ -83,11 +83,11 @@ defmodule Kiln.EvidenceTest do
       assert e1.record_digest == e2.record_digest
     end
 
-    test "different evidence_id yields different record_digest" do
+    test "different evidence_id yields same record_digest (record_digest excludes evidence_id)" do
       attrs2 = base_attrs(%{evidence_id: "01900000-0000-7000-8000-000000000999"})
       assert {:ok, e1} = Evidence.new(base_attrs())
       assert {:ok, e2} = Evidence.new(attrs2)
-      assert e1.record_digest != e2.record_digest
+      assert e1.record_digest == e2.record_digest
     end
   end
 
@@ -387,11 +387,11 @@ defmodule Kiln.EvidenceTest do
       assert evidence.request_digest != evidence.record_digest
     end
 
-    test "changing idempotency_key changes both digests" do
+    test "changing idempotency_key changes only request_digest (record_digest excludes idempotency_key)" do
       assert {:ok, a} = Evidence.new(base_attrs(%{idempotency_key: "idem-a"}))
       assert {:ok, b} = Evidence.new(base_attrs(%{idempotency_key: "idem-b"}))
       assert a.request_digest != b.request_digest
-      assert a.record_digest != b.record_digest
+      assert a.record_digest == b.record_digest
     end
 
     test "changing artifact_ids changes both digests" do
