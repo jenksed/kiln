@@ -48,8 +48,7 @@ defmodule Kiln.Evidence.View do
           criterion_id: String.t(),
           subject: {Kiln.Evidence.subject_kind(), String.t(), String.t()},
           repository_state_digest: String.t(),
-          patch_binding:
-            {String.t() | nil, String.t() | nil, String.t() | nil} | nil,
+          patch_binding: {String.t() | nil, String.t() | nil, String.t() | nil} | nil,
           host_profile_digest: String.t() | nil,
           command_result_id: String.t() | nil,
           artifact_references: [String.t()],

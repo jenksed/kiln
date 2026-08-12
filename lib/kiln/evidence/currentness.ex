@@ -69,7 +69,8 @@ defmodule Kiln.Evidence.Currentness.Context do
   """
   @spec new(map()) :: {:ok, t()} | {:error, term()}
   def new(attrs) when is_map(attrs) do
-    required = ~w(current_subject_state_digest current_repository_state_digest current_evaluator_digest evaluated_at)a
+    required =
+      ~w(current_subject_state_digest current_repository_state_digest current_evaluator_digest evaluated_at)a
 
     case Enum.find(required, fn key -> not Map.has_key?(attrs, key) end) do
       nil ->
@@ -99,7 +100,8 @@ defmodule Kiln.Evidence.Currentness.Context do
          current_patch_digest: Map.get(attrs, :current_patch_digest),
          current_patch_result_digest: Map.get(attrs, :current_patch_result_digest),
          current_host_profile_digest: Map.get(attrs, :current_host_profile_digest),
-         current_command_registration_digest: Map.get(attrs, :current_command_registration_digest),
+         current_command_registration_digest:
+           Map.get(attrs, :current_command_registration_digest),
          current_command_result_id: Map.get(attrs, :current_command_result_id),
          current_evaluator_digest: Map.fetch!(attrs, :current_evaluator_digest),
          artifact_integrity_by_id: artifact_integrity,
@@ -112,8 +114,8 @@ defmodule Kiln.Evidence.Currentness.Context do
   defp validate_integrity_map(value) when is_map(value) do
     cond do
       not Enum.all?(value, fn {_, v} ->
-             v in [:verified, :corrupt, :missing, :unknown]
-           end) ->
+        v in [:verified, :corrupt, :missing, :unknown]
+      end) ->
         {:error, :invalid_artifact_integrity}
 
       true ->
