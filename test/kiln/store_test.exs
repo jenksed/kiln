@@ -19,7 +19,7 @@ defmodule Kiln.StoreTest do
 
     on_exit(fn -> stop(store.conn) end)
 
-    assert store.store_version == 4
+    assert store.store_version == 5
     assert store.store_format == "kiln-state/v1"
     assert store.store_id == "store_fixture"
 
@@ -37,7 +37,7 @@ defmodule Kiln.StoreTest do
 
     assert parts >= {3, 51, 3}
 
-    assert [[1, _], [2, checksum], [3, _], [4, _]] =
+    assert [[1, _], [2, checksum], [3, _], [4, _], [5, _]] =
              Connection.query!(
                store.conn,
                "SELECT version, checksum FROM schema_migrations ORDER BY version"
@@ -58,7 +58,7 @@ defmodule Kiln.StoreTest do
     assert {:ready, second} = Store.start(path: path)
     on_exit(fn -> stop(second.conn) end)
 
-    assert second.store_version == 4
+    assert second.store_version == 5
     assert second.store_id == "store_fixture"
   end
 
@@ -66,7 +66,7 @@ defmodule Kiln.StoreTest do
     assert {:ok, conn} = Store.start_link(path: path, store_id: "store_fixture", now: "t0")
     on_exit(fn -> stop(conn) end)
 
-    assert [[4]] = Connection.query!(conn, "SELECT count(*) FROM schema_migrations")
+    assert [[5]] = Connection.query!(conn, "SELECT count(*) FROM schema_migrations")
     assert is_pid(conn)
   end
 

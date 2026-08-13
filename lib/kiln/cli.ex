@@ -64,6 +64,7 @@ defmodule Kiln.CLI do
       :inspect -> run_readonly(request, &dispatch_inspect/2)
       :cancel -> run_writable(request, &dispatch_cancel/2)
       :resume -> run_readonly(request, &dispatch_resume/2)
+      :supervise -> run_supervise(request)
     end
   end
 
@@ -92,6 +93,27 @@ defmodule Kiln.CLI do
             {:ok, %Result{} = result, _session} ->
               {result, result.exit_code}
           end
+        after
+          Runtime.stop()
+        end
+
+      {:absent} ->
+        absent_result(request)
+
+      {:blocked, state, _error} ->
+        blocked_result(request, state)
+    end
+  end
+
+  # The supervise command opens the store in write mode because the
+  # supervisor persists Artifacts, Evidence, and a supervision_runs row.
+  # The dispatcher never reaches into Evidence or Artifact internals;
+  # it routes through `Kiln.Supervision` only.
+  defp run_supervise(%Request{} = request) do
+    case Runtime.open(request.kiln_home, :write) do
+      {:ok, :ready} ->
+        try do
+          dispatch_supervise(request)
         after
           Runtime.stop()
         end
@@ -949,4 +971,128 @@ defmodule Kiln.CLI do
   defp description_for(:inspect), do: "show the complete accepted P1-S01 state"
   defp description_for(:cancel), do: "cancel the Run when no operation is open or unknown"
   defp description_for(:resume), do: "report the current projection and valid next actions"
+
+  defp description_for(:supervise),
+    do: "supervise one Repository Recon Work Envelope through Kiln.Supervision"
+
+  # -- command: supervise --
+  #
+  # The Wave 3 supervision boundary. Accepts a Work Envelope payload
+  # path through `--work-envelope`, validates the payload through
+  # `Kiln.WorkEnvelope.new/1`, observes the target repository, decides
+  # `git.read` authority through `Kiln.Authority`, persists Artifact +
+  # Evidence through the merged substrate, and produces the run-result
+  # envelope. The CLI never reaches into Evidence or Artifact
+  # internals; it routes through `Kiln.Supervision` only.
+  defp dispatch_supervise(%Request{options: opts, actor_id: actor_id} = request) do
+    work_envelope_path = Map.fetch!(opts, "work-envelope")
+
+    with {:ok, attrs} <- Kiln.WorkEnvelopeLoader.load(work_envelope_path),
+         {:ok, store} <- ready_store() do
+      completion = Map.get(opts, "observation-completion", default_completion())
+
+      supervise_opts = [
+        store: store,
+        actor_id: actor_id,
+        now: now_iso(),
+        git: Map.get(opts, "git", "git"),
+        observation_completion: completion
+      ]
+
+      case Kiln.Supervision.supervise(attrs, supervise_opts) do
+        {:ok, %Kiln.RunResultEnvelope{} = envelope} ->
+          result_map = Kiln.RunResultEnvelope.to_map(envelope)
+
+          {:ok,
+           Result.ok("supervise",
+             data: %{
+               run_id: envelope.run_id,
+               work_id: envelope.work_id,
+               status: Atom.to_string(envelope.status),
+               acceptance_readiness: envelope.acceptance_readiness
+             },
+             session_revision: 0,
+             journal_digest: nil,
+             next_actions:
+               navigation_actions("supervise") ++
+                 [
+                   Result.next_action("inspect", "review the durable Run result envelope"),
+                   Result.next_action("status", "show the current projection")
+                 ],
+             envelope: result_map
+           )}
+
+        {:error, {:idempotency_conflict, _, _}} ->
+          idempotency_conflict_result()
+
+        {:error, reason} ->
+          supervise_error_result(reason)
+      end
+    else
+      {:error, %Error{} = error} ->
+        error_result_tuple(request, error)
+
+      {:error, reason} ->
+        code = error_code(reason)
+        {status, exit_code} = ErrorMap.map(code)
+        errors = [Result.to_error(%{code: code, message: inspect(reason)})]
+        {Result.error("supervise", status, exit_code: exit_code, errors: errors), exit_code}
+    end
+  end
+
+  defp ready_store do
+    case Process.whereis(Kiln.Store.Connection) do
+      nil -> {:error, :store_unavailable}
+      pid when is_pid(pid) -> {:ok, %{conn: pid}}
+    end
+  end
+
+  # The Wave 3 wedge does not embed the Loadout procedure; the producer
+  # supplies its observation completion through the Work Envelope or
+  # through a deterministic fixture. This default returns a successful
+  # completion so the CLI runs the full happy-path pipeline without a
+  # separate orchestrator process.
+  defp default_completion do
+    %{
+      status: :completed,
+      warnings: [],
+      unknowns: []
+    }
+  end
+
+  defp now_iso, do: DateTime.utc_now() |> DateTime.to_iso8601()
+
+  defp idempotency_conflict_result do
+    {status, exit_code} = ErrorMap.map(:idempotency_conflict)
+
+    result =
+      Result.error("supervise", status,
+        exit_code: exit_code,
+        errors: [
+          Result.to_error(%{
+            code: :idempotency_conflict,
+            message: "the same work_id was used with a materially different request"
+          })
+        ]
+      )
+
+    {result, exit_code}
+  end
+
+  defp supervise_error_result(reason) do
+    code = error_code(reason)
+    {status, exit_code} = ErrorMap.map(code)
+
+    result =
+      Result.error("supervise", status,
+        exit_code: exit_code,
+        errors: [Result.to_error(reason)]
+      )
+
+    {result, exit_code}
+  end
+
+  defp error_code(%Kiln.Store.Error{code: code}), do: code
+  defp error_code(%{code: code}) when is_atom(code), do: code
+  defp error_code(_), do: :unknown
 end

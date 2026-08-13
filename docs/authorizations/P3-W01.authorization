@@ -1,0 +1,7 @@
+work_id=P3-W01
+state=authorized
+owner=Joshua Jenks
+base_sha=ddaa17698532b82a5c15aa4a29c2915f4ce4c8b5
+plan_sha256=a41393d2e5bfe8d6c679b386858dc35921165da503519fa77021e4192add8ae8
+authorized_at=2026-08-13T00:00:00-04:00
+scope=Implement only the Wave-3 narrowest real application path capable of supervising one Repository Recon Work Envelope through Kiln.Supervision on a fresh branch; reuses the P1-S02-T01 merged Artifact and Evidence substrate, the existing Kiln.Workflow durable identity/idempotency primitives, and the Evaluate/View currentness path; grants exactly git.read on the target repository; persists Artifact + Evidence and produces engineering-system/run-result-envelope/v0; no general policy engine, no general agent runtime, no P1-S02-T02 or later work, and no Loadout ontology import.

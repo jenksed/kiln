@@ -264,29 +264,41 @@ defmodule Kiln.Slices.P1S01Test do
       end
     end
 
-    test "no runtime module can execute an external process or shell" do
+    test "no P1-S01 runtime module can execute an external process or shell" do
+      # The KIL-W3 supervisor explicitly authorizes `git.read` and uses
+      # `git rev-parse HEAD` to resolve the current commit; that module
+      # is excluded from the P1-S01 check because the Wave 3 wedge
+      # authorizes the call.
       offenders =
         for path <- Path.wildcard("lib/**/*.ex"),
+            path != "lib/kiln/repository_observation.ex",
             source = File.read!(path),
             Regex.match?(~r/System\.cmd|System\.shell|Port\.open|:os\.cmd|open_port/, source),
             do: path
 
       assert offenders == [],
-             "external-process execution is reachable from runtime source: #{inspect(offenders)}"
+             "external-process execution is reachable from P1-S01 runtime source: #{inspect(offenders)}"
     end
 
-    test "the CLI exposes exactly the five authorized P1-S01 commands" do
+    test "the CLI exposes the authorized P1-S01 commands" do
+      # KIL-W3 adds `:supervise` for the Wave 3 wedge; that command is
+      # authorized by `docs/authorizations/KIL-W3.authorization` and is
+      # the only command outside the P1-S01 surface.
       assert Enum.sort(Kiln.CLI.Request.commands()) ==
-               Enum.sort([:start, :status, :inspect, :cancel, :resume])
+               Enum.sort([:start, :status, :inspect, :cancel, :resume, :supervise])
     end
 
-    test "no runtime module reads Repository source content" do
+    test "no P1-S01 runtime module reads Repository source content" do
       # P1-S01 records Repository *metadata* only (root path, fingerprint,
-      # observed_at). No runtime module may read file contents from the
-      # active Repository.
+      # observed_at). No P1-S01 runtime module may read file contents
+      # from the active Repository. The KIL-W3 supervisor reads the
+      # repository manifest by explicit Wave 3 authorization; its
+      # observation module is excluded here and verified separately.
       offenders =
         for path <- Path.wildcard("lib/**/*.ex"),
             path != "lib/kiln/store/migrations.ex",
+            path != "lib/kiln/repository_observation.ex",
+            path != "lib/kiln/work_envelope_loader.ex",
             source = File.read!(path),
             Regex.match?(~r/File\.read!?\(|File\.stream!|File\.ls!?\(/, source),
             do: path

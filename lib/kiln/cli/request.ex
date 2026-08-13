@@ -30,7 +30,7 @@ defmodule Kiln.CLI.Request do
 
   alias Kiln.CLI.Result
 
-  @supported_commands [:start, :status, :inspect, :cancel, :resume]
+  @supported_commands [:start, :status, :inspect, :cancel, :resume, :supervise]
   @command_lookup Map.new(@supported_commands, &{Atom.to_string(&1), &1})
 
   # The accepted default home directory. Matches
@@ -84,14 +84,15 @@ defmodule Kiln.CLI.Request do
 
   # -- tokenization --
 
-  @value_flags ~w(--format --kiln-home --actor-id --repo --objective --criterion --constraint --exclude --reason)
+  @value_flags ~w(--format --kiln-home --actor-id --repo --objective --criterion --constraint --exclude --reason --work-envelope)
   @repeating_flags ~w(criterion constraint exclude)
   @command_flags %{
     start: ~w(repo objective criterion constraint exclude),
     status: [],
     inspect: [],
     cancel: ~w(reason),
-    resume: []
+    resume: [],
+    supervise: ~w(work-envelope)
   }
 
   defp tokenize(argv) do
@@ -282,6 +283,14 @@ defmodule Kiln.CLI.Request do
 
       true ->
         :ok
+    end
+  end
+
+  defp required_command_options(:supervise, options) do
+    if non_empty_option?(options, "work-envelope") do
+      :ok
+    else
+      usage_result("--work-envelope is required")
     end
   end
 
