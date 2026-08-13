@@ -77,6 +77,13 @@ record() {
 }
 
 # Run a required component. A nonzero exit is a gate failure, never a warning.
+#
+# On failure the full stdout+stderr is preserved to a per-component log
+# under the slice artifact directory and the recorded `detail` carries
+# the exit status, the command, and the key diagnostic lines (ENOENT
+# paths, compiler errors, the last 20 lines as context). `tail -5`
+# truncates too aggressively and previously discarded the missing path
+# before it could be classified, so it is no longer used here.
 run_required() {
   local name="$1" proves="$2"
   shift 2
@@ -87,9 +94,32 @@ run_required() {
 
   if [[ $status -eq 0 ]]; then
     record "$name" pass '' "$proves"
-  else
-    record "$name" fail "exit $status: $(printf '%s' "$out" | tail -5 | tr '\n' ' ')" "$proves"
+    return
   fi
+
+  local cmd="$*"
+  local log_path="$ARTIFACT_DIR/${name}.log"
+  mkdir -p "$ARTIFACT_DIR"
+  printf '%s\n' "$out" > "$log_path"
+
+  # Prefer a line that names the missing artifact (ENOENT, no such file,
+  # undefined module) because that is the line the integrator needs to
+  # classify the failure. Fall back to the first File.Error / CompileError
+  # marker, then to the last 20 lines as context.
+  local key_line
+  key_line=$(printf '%s' "$out" | grep -E -m1 'ENOENT|no such file|undef |cannot load module|is not loaded|does not exist' || true)
+  if [[ -z "$key_line" ]]; then
+    key_line=$(printf '%s' "$out" | grep -E -m1 '\*\* \(CompileError\)|\*\* \(File.Error\)|\*\* \(RuntimeError\)|could not compile' || true)
+  fi
+  if [[ -z "$key_line" ]]; then
+    key_line=$(printf '%s' "$out" | tail -20 | tr '\n' '|')
+  else
+    key_line=$(printf '%s' "$key_line" | tr '\n' ' ')
+  fi
+
+  record "$name" fail \
+    "exit $status | cmd: $cmd | log: $log_path | key: $key_line" \
+    "$proves"
 }
 
 # Run a required component that needs an external tool. A missing tool is
