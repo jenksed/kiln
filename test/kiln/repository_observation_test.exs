@@ -15,25 +15,23 @@ defmodule Kiln.RepositoryObservationTest do
   end
 
   test "observes the repository root, current_commit, and digest", %{base: base} do
-    File.cd!(base, fn ->
-      System.cmd("git", ["init", "-q", "--initial-branch=main"])
-      System.cmd("git", ["config", "user.email", "test@example.com"])
-      System.cmd("git", ["config", "user.name", "Test"])
-      System.cmd("git", ["add", "."])
-      System.cmd("git", ["commit", "-m", "init"])
-      {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"])
-      sha = String.trim(sha)
+    System.cmd("git", ["init", "-q", "--initial-branch=main"], cd: base)
+    System.cmd("git", ["config", "user.email", "test@example.com"], cd: base)
+    System.cmd("git", ["config", "user.name", "Test"], cd: base)
+    System.cmd("git", ["add", "."], cd: base)
+    System.cmd("git", ["commit", "-m", "init"], cd: base)
+    {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: base)
+    sha = String.trim(sha)
 
-      assert {:ok, observation} =
-               RepositoryObservation.observe(base, "sha256:input", now: "2026-08-13T00:00:00Z")
+    assert {:ok, observation} =
+             RepositoryObservation.observe(base, "sha256:input", now: "2026-08-13T00:00:00Z")
 
-      assert observation.repository == base
-      assert observation.current_commit == sha
-      assert observation.head_resolved == true
-      assert String.starts_with?(observation.repository_state_digest, "sha256:")
-      assert observation.input_state_digest == "sha256:input"
-      assert observation.observed_at == "2026-08-13T00:00:00Z"
-    end)
+    assert observation.repository == base
+    assert observation.current_commit == sha
+    assert observation.head_resolved == true
+    assert String.starts_with?(observation.repository_state_digest, "sha256:")
+    assert observation.input_state_digest == "sha256:input"
+    assert observation.observed_at == "2026-08-13T00:00:00Z"
   end
 
   test "returns head_resolved=false when no git HEAD is present", %{base: base} do

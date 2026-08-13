@@ -29,10 +29,8 @@ defmodule Kiln.SupervisionRestartRegressionTest do
   use ExUnit.Case, async: false
 
   alias Kiln.Artifact.Store, as: ArtifactStore
-  alias Kiln.Evidence.Store, as: EvidenceStore
   alias Kiln.Store
   alias Kiln.Supervision
-  alias Kiln.WorkEnvelope
 
   @moduletag :tmp_dir
   @now "2026-08-13T00:00:00Z"
@@ -123,7 +121,7 @@ defmodule Kiln.SupervisionRestartRegressionTest do
 
   describe "negative reconstruction behavior" do
     test "missing artifact does not invent original authority or final commit",
-         %{store: store, base: base, repo: repo, base_commit: base_commit} do
+         %{store: store, repo: repo, base_commit: base_commit} do
       attrs = envelope(repo, base_commit, "wfg-neg-missing-#{System.unique_integer([:positive])}")
 
       assert {:ok, first} =
@@ -157,7 +155,7 @@ defmodule Kiln.SupervisionRestartRegressionTest do
     end
 
     test "corrupt artifact does not deserialize and trust bytes without integrity",
-         %{store: store, base: base, repo: repo, base_commit: base_commit} do
+         %{store: store, repo: repo, base_commit: base_commit} do
       attrs = envelope(repo, base_commit, "wfg-neg-corrupt-#{System.unique_integer([:positive])}")
 
       assert {:ok, first} =
@@ -188,7 +186,7 @@ defmodule Kiln.SupervisionRestartRegressionTest do
     end
 
     test "partial durable information exposes an unknown state rather than sentinel",
-         %{store: store, base: base, repo: repo, base_commit: base_commit} do
+         %{store: store, repo: repo, base_commit: base_commit} do
       attrs = envelope(repo, base_commit, "wfg-neg-partial-#{System.unique_integer([:positive])}")
 
       assert {:ok, first} =
@@ -225,7 +223,7 @@ defmodule Kiln.SupervisionRestartRegressionTest do
     end
 
     test "replay determinism: repeated inspect/reconstruction is stable",
-         %{store: store, base: base, repo: repo, base_commit: base_commit} do
+         %{store: store, repo: repo, base_commit: base_commit} do
       attrs = envelope(repo, base_commit, "wfg-neg-replay-#{System.unique_integer([:positive])}")
 
       assert {:ok, first} =

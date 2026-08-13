@@ -294,9 +294,13 @@ defmodule Kiln.Slices.P1S01Test do
       # from the active Repository. The KIL-W3 supervisor reads the
       # repository manifest by explicit Wave 3 authorization; its
       # observation module is excluded here and verified separately.
+      # Artifact.Store.read/2 reads only Kiln-owned Artifact content,
+      # not source from the active Repository, and is covered by the
+      # P3-W01 reconstruction tests.
       offenders =
         for path <- Path.wildcard("lib/**/*.ex"),
             path != "lib/kiln/store/migrations.ex",
+            path != "lib/kiln/artifact/store.ex",
             path != "lib/kiln/repository_observation.ex",
             path != "lib/kiln/work_envelope_loader.ex",
             source = File.read!(path),

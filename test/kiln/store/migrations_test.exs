@@ -15,10 +15,10 @@ defmodule Kiln.Store.MigrationsTest do
   end
 
   test "applies the initial migration on a fresh store", %{conn: conn} do
-    assert {:ok, %{version: 5, applied_now: [1, 2, 3, 4, 5]}} =
+    assert {:ok, %{version: 6, applied_now: [1, 2, 3, 4, 5, 6]}} =
              Migrations.migrate(conn, now: "2026-07-29T00:00:00Z")
 
-    assert Migrations.current_version(conn) == 5
+    assert Migrations.current_version(conn) == 6
 
     tables =
       conn
@@ -47,7 +47,7 @@ defmodule Kiln.Store.MigrationsTest do
 
   test "is idempotent when already current", %{conn: conn} do
     {:ok, _} = Migrations.migrate(conn, now: "2026-07-29T00:00:00Z")
-    assert {:ok, %{version: 5, applied_now: []}} = Migrations.migrate(conn)
+    assert {:ok, %{version: 6, applied_now: []}} = Migrations.migrate(conn)
   end
 
   test "blocks when the bundled migration set is absent", %{conn: conn, dir: dir} do
@@ -105,10 +105,10 @@ defmodule Kiln.Store.MigrationsTest do
         request_digest: "sha256:02"
       })
 
-      assert {:ok, %{version: 5, applied_now: [2, 3, 4, 5]}} =
+      assert {:ok, %{version: 6, applied_now: [2, 3, 4, 5, 6]}} =
                Migrations.migrate(v1.conn, now: "2026-08-01T00:00:00Z")
 
-      assert Migrations.current_version(v1.conn) == 5
+      assert Migrations.current_version(v1.conn) == 6
 
       idx_rows =
         Connection.query!(
@@ -215,7 +215,7 @@ defmodule Kiln.Store.MigrationsTest do
       assert {:ok, report_two} = Replay.rebuild(v1.conn, session_two)
       assert report_two.projection["session"]["id"] == session_two
 
-      assert {:ok, %{version: 5, applied_now: [2, 3, 4, 5]}} =
+      assert {:ok, %{version: 6, applied_now: [2, 3, 4, 5, 6]}} =
                Migrations.migrate(v1.conn, now: "2026-08-01T00:00:00Z")
 
       # After the upgrade the rebuild must still succeed; this is the
@@ -523,7 +523,7 @@ defmodule Kiln.Store.MigrationsTest do
       assert [fragment] = shredded
       refute String.ends_with?(String.trim(fragment), "END")
 
-      assert {:ok, %{version: 5}} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
+      assert {:ok, %{version: 6}} = Migrations.migrate(conn, now: "2026-08-11T00:00:00Z")
     end
 
     test "recorded checksums stay bound to file bytes, not the split", %{conn: conn} do
