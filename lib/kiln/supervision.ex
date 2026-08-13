@@ -96,7 +96,16 @@ defmodule Kiln.Supervision do
     with {:ok, envelope} <- WorkEnvelope.new(work_envelope_attrs),
          {:ok, request_digest} <- idempotency_request_digest(envelope),
          {:ok, run_id, _run_state} <-
-           resolve_run_id(store, envelope.work_id, request_digest, now, uuid_v7) do
+           resolve_run_id(
+             store,
+             envelope.work_id,
+             request_digest,
+             now,
+             uuid_v7,
+             envelope.project_state.base_commit,
+             envelope.project_state.workspace_state_digest,
+             Enum.map(envelope.proof_obligations, & &1.id)
+           ) do
       observation_root = repository_root_resolver.(envelope.project_state.repository)
       observation_opts = [git: git, now: now]
 
@@ -213,11 +222,38 @@ defmodule Kiln.Supervision do
   Returns `{:ok, run_id}` when exactly one durable Run exists for the
   work_id, `:none` when none exists, or `{:error, :multiple_runs}` when
   more than one exists.
+
+  Accepts the producer's `input_state` (`base_commit`,
+  `workspace_state_digest`) and the `proof_obligation_ids` list so the
+  new durable columns are persisted on the initial row insert. A
+  pre-existing row created by the previous schema (without these
+  columns) is left untouched; the projection treats empty values as
+  `unknown` per migration 0006.
   """
-  @spec resolve_run_id(map(), String.t(), String.t(), String.t(), (-> String.t())) ::
-          {:ok, String.t(), map()} | {:error, term()}
-  def resolve_run_id(store, work_id, request_digest, now, uuid_v7_fun)
-      when is_binary(work_id) and is_binary(request_digest) do
+  @spec resolve_run_id(
+          map(),
+          String.t(),
+          String.t(),
+          String.t(),
+          (-> String.t()),
+          String.t(),
+          String.t(),
+          [String.t()]
+        ) :: {:ok, String.t(), map()} | {:error, term()}
+  def resolve_run_id(
+        store,
+        work_id,
+        request_digest,
+        now,
+        uuid_v7_fun,
+        base_commit,
+        workspace_state_digest,
+        proof_obligation_ids
+      )
+      when is_binary(work_id) and is_binary(request_digest) and is_binary(base_commit) and
+             is_binary(workspace_state_digest) and is_list(proof_obligation_ids) do
+    obligation_ids_json = encode_obligations(proof_obligation_ids)
+
     case Store.Connection.query!(
            store.conn,
            "SELECT run_id, request_digest FROM supervision_runs WHERE work_id = ?1",
@@ -229,10 +265,22 @@ defmodule Kiln.Supervision do
         Store.Connection.query!(
           store.conn,
           """
-          INSERT INTO supervision_runs (work_id, run_id, request_digest, created_at, run_state)
-          VALUES (?1, ?2, ?3, ?4, ?5)
+          INSERT INTO supervision_runs (
+            work_id, run_id, request_digest, created_at, run_state,
+            base_commit, workspace_state_digest, proof_obligation_ids
+          )
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
           """,
-          [work_id, run_id, request_digest, now, "active"]
+          [
+            work_id,
+            run_id,
+            request_digest,
+            now,
+            "active",
+            base_commit,
+            workspace_state_digest,
+            obligation_ids_json
+          ]
         )
 
         {:ok, run_id, %{status: :created}}
@@ -804,33 +852,333 @@ defmodule Kiln.Supervision do
     end
   end
 
-  defp reconstruct_envelope(_store, work_id, run_id, artifact_ids, evidence_ids) do
-    envelope = %RunResultEnvelope{
-      schema: RunResultEnvelope.schema(),
-      work_id: work_id,
-      run_id: run_id,
-      status: :completed,
-      input_state: %{
-        base_commit: "0000000000000000000000000000000000000000",
-        workspace_state_digest: "sha256:restored"
-      },
-      final_state: %{
-        commit: nil,
-        workspace_state_digest: "sha256:restored"
-      },
-      authority: %{requested: [], granted: [], denied: []},
-      effects: Enum.map(artifact_ids, fn id -> %{"kind" => "artifact", "artifact_id" => id} end),
-      evidence: Enum.map(evidence_ids, fn id -> %{"kind" => "evidence", "evidence_id" => id} end),
-      proof_obligations: %{satisfied: ["repo-state-observed"], unsatisfied: [], invalidated: []},
-      unknowns: ["reconstructed from durable artifact + evidence ids"],
-      recovery: nil,
-      acceptance_readiness: %{
-        ready: false,
-        reasons: ["reconstructed envelope never claims acceptance"]
-      }
-    }
+  # Restore the persisted input bindings (base_commit,
+  # workspace_state_digest, proof_obligation_ids) for one Run. Returns
+  # `{:ok, %{base_commit, workspace_state_digest, proof_obligation_ids}}`
+  # or `{:error, :run_not_found}`. A row written by the pre-0006 schema
+  # has empty defaults; the caller must surface those as `:unknown`
+  # rather than fabricating values.
+  defp fetch_run_input_state(store, run_id) do
+    case Store.Connection.query!(
+           store.conn,
+           """
+           SELECT base_commit, workspace_state_digest, proof_obligation_ids
+           FROM supervision_runs
+           WHERE run_id = ?1
+           """,
+           [run_id]
+         ) do
+      [[base_commit, workspace_state_digest, obligation_ids_json]] ->
+        {:ok,
+         %{
+           base_commit: base_commit,
+           workspace_state_digest: workspace_state_digest,
+           proof_obligation_ids: decode_obligations(obligation_ids_json)
+         }}
 
-    {:ok, envelope}
+      [] ->
+        {:error, :run_not_found}
+    end
+  end
+
+  defp decode_obligations("[]"), do: []
+  defp decode_obligations(""), do: []
+
+  defp decode_obligations(json) when is_binary(json) do
+    case JSON.decode(json) do
+      {:ok, list} when is_list(list) -> Enum.map(list, &to_string/1)
+      _ -> []
+    end
+  end
+
+  defp encode_obligations(ids) when is_list(ids) do
+    JSON.encode!(Enum.map(ids, &to_string/1))
+  end
+
+  # The reconstruction pipeline. Every field is sourced from a durable
+  # fact; the Artifact substrate is the accepted source for the
+  # semantic payload of the Run, and `supervision_runs` is the source
+  # for the producer's input bindings. A missing, corrupt, or unreadable
+  # artifact yields `{:error, reason}`; a partially-recoverable Run
+  # yields an envelope that classifies itself as `:unknown` and lists
+  # the missing facts in `unknowns`.
+  defp reconstruct_envelope(store, work_id, run_id, artifact_ids, evidence_ids) do
+    with {:ok, input_state_row} <- fetch_run_input_state(store, run_id),
+         {:ok, observation} <- find_observation_artifact(store, artifact_ids),
+         {:ok, decisions} <- find_authority_decision_artifacts(store, artifact_ids),
+         {:ok, evidence_by_id} <- fetch_evidence_records(store, evidence_ids) do
+      # Decisions are ordered by artifact_id, not by submission time, so
+      # the reconstructed envelope is deterministic.
+      requested_caps =
+        decisions
+        |> Enum.map(& &1["requested_capability"])
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      granted_caps =
+        decisions
+        |> Enum.filter(&(&1["result"] == "granted"))
+        |> Enum.map(& &1["requested_capability"])
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      denied_caps =
+        decisions
+        |> Enum.filter(&(&1["result"] == "denied"))
+        |> Enum.map(& &1["requested_capability"])
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      authority = %{requested: requested_caps, granted: granted_caps, denied: denied_caps}
+
+      final_state_commit = observation["current_commit"]
+
+      final_state = %{
+        commit: final_state_commit,
+        workspace_state_digest: observation["input_state_digest"]
+      }
+
+      input_state = %{
+        base_commit: input_state_row.base_commit,
+        workspace_state_digest: input_state_row.workspace_state_digest
+      }
+
+      status = derive_status(decisions, evidence_by_id)
+
+      proof_obligations =
+        derive_proof_obligations(input_state_row.proof_obligation_ids, evidence_by_id)
+
+      unknowns = build_reconstruction_unknowns(input_state_row, observation, decisions)
+
+      envelope = %RunResultEnvelope{
+        schema: RunResultEnvelope.schema(),
+        work_id: work_id,
+        run_id: run_id,
+        status: status,
+        input_state: input_state,
+        final_state: final_state,
+        authority: authority,
+        effects:
+          Enum.map(artifact_ids, fn id -> %{"kind" => "artifact", "artifact_id" => id} end),
+        evidence:
+          Enum.map(evidence_ids, fn id -> %{"kind" => "evidence", "evidence_id" => id} end),
+        proof_obligations: proof_obligations,
+        unknowns: unknowns,
+        recovery: nil,
+        acceptance_readiness: %{
+          ready: false,
+          reasons: ["reconstructed envelope never claims user acceptance"]
+        }
+      }
+
+      {:ok, envelope}
+    else
+      {:error, :run_not_found} ->
+        {:error, :run_not_found}
+
+      {:error, {:missing_artifact, _kind}} ->
+        {:error, {:incomplete_durable_facts, "required artifact is missing"}}
+
+      {:error, {:corrupt_artifact, artifact_id}} ->
+        {:error, {:incomplete_durable_facts, "artifact #{artifact_id} failed integrity check"}}
+
+      {:error, %Kiln.Store.Error{class: :integrity} = err} ->
+        {:error, {:incomplete_durable_facts, "artifact failed integrity check: #{err.code}"}}
+
+      {:error, %Kiln.Store.Error{class: :io} = err} ->
+        {:error, {:incomplete_durable_facts, "artifact unreadable: #{err.code}"}}
+    end
+  end
+
+  # Locate the observation Artifact published by `publish_observation_artifact/6`
+  # among the run's artifact ids. There is exactly one observation per
+  # supervised Run; a supervisor that persisted zero or multiple is a
+  # durable inconsistency and must not be silently repaired.
+  defp find_observation_artifact(store, artifact_ids) do
+    find_artifact_by_schema(store, artifact_ids, @schema_observation_artifact)
+  end
+
+  # Locate every authority_decision Artifact published for this Run.
+  # The supervisor publishes one per Work Envelope `authority_request`
+  # entry; a missing entry is an inconsistent supervision and is
+  # surfaced as `{:error, {:missing_artifact, :authority_decision}}`.
+  defp find_authority_decision_artifacts(store, artifact_ids) do
+    case each_artifact(store, artifact_ids, fn body ->
+           body["schema"] == @schema_authority_artifact
+         end) do
+      {:ok, decisions} ->
+        if Enum.empty?(decisions) do
+          {:error, {:missing_artifact, :authority_decision}}
+        else
+          {:ok, Enum.sort_by(decisions, & &1["decision_id"])}
+        end
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  defp find_artifact_by_schema(store, artifact_ids, schema) do
+    case each_artifact(store, artifact_ids, fn body -> body["schema"] == schema end) do
+      {:ok, [body | _]} -> {:ok, body}
+      {:ok, []} -> {:error, {:missing_artifact, schema}}
+      err -> err
+    end
+  end
+
+  # Read and decode each Artifact body whose schema predicate holds,
+  # verifying integrity for every one before returning the decoded
+  # payload. A corrupt or missing artifact body fails the whole
+  # reconstruction; the supervisor must not decode and trust
+  # unverified bytes.
+  defp each_artifact(store, artifact_ids, schema_predicate) do
+    Enum.reduce_while(artifact_ids, {:ok, []}, fn artifact_id, {:ok, acc} ->
+      case read_and_decode_artifact(store, artifact_id) do
+        {:ok, body} ->
+          if schema_predicate.(body) do
+            {:cont, {:ok, [body | acc]}}
+          else
+            {:cont, {:ok, acc}}
+          end
+
+        {:error, {:artifact_corrupt, ^artifact_id}} ->
+          {:halt, {:error, {:corrupt_artifact, artifact_id}}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp read_and_decode_artifact(store, artifact_id) do
+    case ArtifactStore.read(store, artifact_id) do
+      {:ok, bytes, %{integrity_status: :verified}} ->
+        case JSON.decode(bytes) do
+          {:ok, body} when is_map(body) -> {:ok, body}
+          _ -> {:error, {:artifact_corrupt, artifact_id}}
+        end
+
+      {:error, %Kiln.Store.Error{} = error} ->
+        {:error, error}
+    end
+  end
+
+  # Fetch every Evidence record bound to the Run, returning a map keyed
+  # by `evidence_id`. Each Evidence row carries the immutable
+  # `criterion_id` and `result` the supervisor needs to derive
+  # `proof_obligations` truthfully.
+  defp fetch_evidence_records(store, evidence_ids) do
+    Enum.reduce_while(evidence_ids, {:ok, %{}}, fn evidence_id, {:ok, acc} ->
+      case EvidenceStore.fetch(store, evidence_id) do
+        {:ok, evidence, %{integrity_status: _status}} ->
+          {:cont, {:ok, Map.put(acc, evidence_id, evidence)}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp derive_status(decisions, evidence_by_id) do
+    cond do
+      Enum.empty?(decisions) ->
+        :unknown
+
+      Enum.any?(decisions, &(&1["result"] == "denied")) ->
+        :blocked
+
+      evidence_by_id == %{} ->
+        :unknown
+
+      true ->
+        :completed
+    end
+  end
+
+  # Truthfully partition the Work Envelope's proof obligations. A
+  # `pass` Evidence satisfies the obligation; a `fail` Evidence
+  # invalidates it; the remaining obligations are unsatisfied. When the
+  # supervisor persisted no obligation ids (pre-0006 schema), the
+  # envelope reports the obligation set as unknown rather than
+  # inventing one — the projection lists that fact in `unknowns`.
+  defp derive_proof_obligations(obligation_ids, evidence_by_id) do
+    if obligation_ids == [] do
+      %{satisfied: [], unsatisfied: [], invalidated: [], unknown: true}
+    else
+      satisfied =
+        evidence_by_id
+        |> Map.values()
+        |> Enum.filter(&(&1.result == :pass))
+        |> Enum.map(& &1.criterion_id)
+        |> Enum.filter(&(&1 in obligation_ids))
+        |> Enum.sort()
+        |> Enum.uniq()
+
+      failed =
+        evidence_by_id
+        |> Map.values()
+        |> Enum.filter(&(&1.result == :fail))
+        |> Enum.map(& &1.criterion_id)
+        |> Enum.filter(&(&1 in obligation_ids))
+        |> Enum.sort()
+        |> Enum.uniq()
+
+      invalidated =
+        obligation_ids
+        |> Enum.filter(&(&1 in failed))
+        |> Enum.sort()
+        |> Enum.uniq()
+
+      unsatisfied =
+        obligation_ids
+        |> Enum.reject(&(&1 in satisfied))
+        |> Enum.reject(&(&1 in invalidated))
+        |> Enum.sort()
+        |> Enum.uniq()
+
+      %{satisfied: satisfied, unsatisfied: unsatisfied, invalidated: invalidated, unknown: false}
+    end
+  end
+
+  defp build_reconstruction_unknowns(input_state_row, observation, decisions) do
+    base =
+      [
+        if(input_state_row.base_commit == "",
+          do: "input_state.base_commit was not durably persisted",
+          else: nil
+        ),
+        if(input_state_row.workspace_state_digest == "",
+          do: "input_state.workspace_state_digest was not durably persisted",
+          else: nil
+        ),
+        if(input_state_row.proof_obligation_ids == [],
+          do: "proof_obligations were not durably persisted",
+          else: nil
+        ),
+        if(observation["head_resolved"] == false,
+          do: "observation.head_resolved was false at supervision time",
+          else: nil
+        )
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    decision_unknowns =
+      decisions
+      |> Enum.flat_map(fn decision ->
+        if decision["granted_scope"] in [nil, ""] do
+          ["authority_decision #{decision["decision_id"]} has no granted_scope recorded"]
+        else
+          []
+        end
+      end)
+
+    (base ++
+       decision_unknowns ++
+       [
+         "Kiln-observed repository_state_digest is not claimed to equal the producer workspace_state_digest",
+         "producer input_state preserved separately from kiln repository_state_digest"
+       ])
+    |> Enum.uniq()
   end
 
   # ============================================================================

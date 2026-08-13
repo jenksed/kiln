@@ -43,6 +43,7 @@ defmodule Kiln.Artifact.Store do
 
   @type put_outcome :: {:ok, Artifact.t(), %{status: :committed | :replayed}}
   @type fetch_outcome :: {:ok, Artifact.t(), %{integrity_status: integrity_status()}}
+  @type read_outcome :: {:ok, binary(), %{integrity_status: integrity_status()}}
   @type error_outcome :: {:error, Error.t()}
 
   @doc """
@@ -99,6 +100,41 @@ defmodule Kiln.Artifact.Store do
 
       {:error, %Error{} = error} ->
         {:error, error}
+    end
+  end
+
+  @doc """
+  Read and integrity-verify the bytes of a previously committed Artifact.
+
+  Returns `{:ok, bytes, %{integrity_status: integrity_status()}}` where
+  `integrity_status` is the same classification `fetch/2` reports. The
+  blob is rehashed against the recorded `content_digest` before the
+  bytes are returned to the caller; a missing, corrupt, or unreadable
+  blob returns an error tuple and never yields bytes the caller can
+  mistake for authentic content.
+
+  The supervisor's restart projection is the only first-month caller;
+  it uses this method to recover the JSON payload of an
+  `authority_decision` or `repository_observation` Artifact without
+  trusting the disk image alone.
+  """
+  @spec read(map(), String.t()) ::
+          {:ok, binary(), %{integrity_status: integrity_status()}}
+          | {:error, Error.t()}
+  def read(%{artifact_root: root} = store, artifact_id)
+      when is_binary(artifact_id) do
+    case fetch(store, artifact_id) do
+      {:ok, artifact, %{integrity_status: :verified}} ->
+        path = FS.final_path(root, artifact.content_location)
+        {:ok, blob} = File.read(path)
+        {:ok, blob, %{integrity_status: :verified}}
+
+      {:ok, _artifact, %{integrity_status: status}} ->
+        {:error,
+         Error.new(:integrity, :artifact_unreadable, "artifact bytes cannot be trusted", %{
+           artifact_id: artifact_id,
+           integrity_status: status
+         })}
     end
   end
 
