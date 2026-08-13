@@ -870,6 +870,13 @@ defmodule Kiln.CLI do
     [Result.next_action("inspect", "show the complete accepted state")]
   end
 
+  defp navigation_actions("supervise") do
+    [
+      Result.next_action("inspect", "review the durable Run Result Envelope"),
+      Result.next_action("status", "show the current projection")
+    ]
+  end
+
   # The Workflow exposes `orphaned: true` when the persisted projection
   # carries a non-nil operation in a nonterminal state. The persisted
   # `run.state` does not change to "orphaned" until Restart rebuilds
@@ -988,7 +995,7 @@ defmodule Kiln.CLI do
     work_envelope_path = Map.fetch!(opts, "work-envelope")
 
     with {:ok, attrs} <- Kiln.WorkEnvelopeLoader.load(work_envelope_path),
-         {:ok, store} <- ready_store() do
+         {:ok, store} <- ready_store(request) do
       completion = Map.get(opts, "observation-completion", default_completion())
 
       supervise_opts = [
@@ -1009,17 +1016,12 @@ defmodule Kiln.CLI do
                run_id: envelope.run_id,
                work_id: envelope.work_id,
                status: Atom.to_string(envelope.status),
-               acceptance_readiness: envelope.acceptance_readiness
+               acceptance_readiness: envelope.acceptance_readiness,
+               envelope: result_map
              },
              session_revision: 0,
              journal_digest: nil,
-             next_actions:
-               navigation_actions("supervise") ++
-                 [
-                   Result.next_action("inspect", "review the durable Run result envelope"),
-                   Result.next_action("status", "show the current projection")
-                 ],
-             envelope: result_map
+             next_actions: navigation_actions("supervise")
            )}
 
         {:error, {:idempotency_conflict, _, _}} ->
@@ -1040,10 +1042,27 @@ defmodule Kiln.CLI do
     end
   end
 
-  defp ready_store do
-    case Process.whereis(Kiln.Store.Connection) do
-      nil -> {:error, :store_unavailable}
-      pid when is_pid(pid) -> {:ok, %{conn: pid}}
+  # The CLI opens the supervised store through `Kiln.CLI.Runtime` in
+  # write mode (the supervisor persists Artifacts, Evidence, and a
+  # `supervision_runs` row). After startup, `Kiln.Store.Connection` is
+  # registered with the live `conn`. The store map handed to the
+  # supervisor must satisfy the Artifact substrate's expected shape
+  # (`%{conn: pid, artifact_root: path}`) or `Artifact.Store.put/2`
+  # raises `FunctionClauseError`.
+  #
+  # The canonical Artifact root is derived from the same `state.sqlite3`
+  # path Runtime opened via `Kiln.Store.artifact_root_for_path/1`. This
+  # helper is the single source of truth for the path layout; Runtime,
+  # `Kiln.Store.start/1`, and this dispatcher all derive the same
+  # directory. The CLI does not invent a second artifact location
+  # convention.
+  defp ready_store(%Request{kiln_home: kiln_home}) do
+    with pid when is_pid(pid) <- Process.whereis(Kiln.Store.Connection) do
+      state_path = Path.join(kiln_home, "state.sqlite3")
+      artifact_root = Kiln.Store.artifact_root_for_path(state_path)
+      {:ok, %{conn: pid, artifact_root: artifact_root}}
+    else
+      _ -> {:error, :store_unavailable}
     end
   end
 
