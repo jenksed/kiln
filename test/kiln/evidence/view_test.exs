@@ -42,7 +42,7 @@ defmodule Kiln.Evidence.ViewTest do
   defp build_view(overrides) do
     {:ok, evidence} = Evidence.new(base_evidence_attrs(overrides))
 
-    context =
+    {:ok, context} =
       Currentness.Context.new(%{
         current_subject_state_digest: evidence.subject_state_digest,
         current_repository_state_digest: evidence.repository_state_digest,
@@ -115,7 +115,7 @@ defmodule Kiln.Evidence.ViewTest do
         )
         |> elem(1)
 
-      context =
+      {:ok, context} =
         Currentness.Context.new(%{
           current_subject_state_digest: evidence.subject_state_digest,
           current_repository_state_digest: "new-repo-digest",
