@@ -111,6 +111,23 @@ defmodule Kiln.Store do
   @spec store_format() :: String.t()
   def store_format, do: @store_format
 
+  @doc """
+  The canonical Artifact root for a state file at `path`.
+
+  The Artifact root is the deterministic `<state_dir>/artifacts` directory
+  sibling of the SQLite state file. This is the same path the accepted
+  startup sequence creates and verifies in `ensure_artifact_root/1`, so any
+  caller that holds a `conn` (e.g. a CLI command after `Kiln.Store.start_link/1`)
+  can recover the Artifact root without rebuilding the full startup map.
+
+  This helper is the single source of truth for the path layout; it never
+  touches the filesystem and never derives an alternative location.
+  """
+  @spec artifact_root_for_path(Path.t()) :: String.t()
+  def artifact_root_for_path(path) when is_binary(path) do
+    Path.join(Path.dirname(path), "artifacts")
+  end
+
   @doc "Rebuild a Session projection from the journal (see `Kiln.Journal.Replay`)."
   defdelegate rebuild(conn, session_id), to: Kiln.Journal.Replay
 
@@ -143,7 +160,7 @@ defmodule Kiln.Store do
   # directory before the store reaches `:ready` (P1-S02-T01-R01, R13).
   defp artifact_root(opts) do
     state_path = Keyword.fetch!(opts, :path)
-    Path.join(Path.dirname(state_path), "artifacts")
+    artifact_root_for_path(state_path)
   end
 
   defp ensure_artifact_root(opts) do
