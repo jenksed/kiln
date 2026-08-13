@@ -109,7 +109,8 @@ defmodule Kiln.RunResultEnvelope do
       observation and producer input.
     * `:authority_decisions` — a list of `%Kiln.Authority{}` records.
     * `:effects` — observed effects (e.g. Artifact ids, evidence ids).
-    * `:evidence` — Evidence summaries keyed by `evidence_id`.
+    * `:evidence` — Evidence summaries with `id`, `kind`, and the bound
+      `state_digest`.
     * `:proof_obligations` — `%{satisfied, unsatisfied, invalidated}`.
     * `:unknowns` — list of explicit unknown strings.
 

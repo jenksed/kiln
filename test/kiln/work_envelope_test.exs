@@ -20,7 +20,8 @@ defmodule Kiln.WorkEnvelopeTest do
       "id" => "repository-recon",
       "contract_version" => "0.1.0",
       "method_provenance" => [
-        %{"id" => "loadout/recon-fixture", "version" => "0.0.1"}
+        "repository-recon/fixture-method@0.0.0-fixture",
+        "digest:sha256:fixture-only"
       ]
     },
     "project_state" => %{
@@ -73,6 +74,18 @@ defmodule Kiln.WorkEnvelopeTest do
     test "rejects an unsupported producer product" do
       attrs = put_in(@fixture, ["producer", "product"], "kiln-cli")
       assert {:error, %Error{code: :unsupported_producer}} = WorkEnvelope.new(attrs)
+    end
+
+    test "rejects non-string method provenance entries" do
+      attrs =
+        put_in(
+          @fixture,
+          ["capability", "method_provenance"],
+          [%{"id" => "loadout/recon-fixture", "version" => "0.0.1"}]
+        )
+
+      assert {:error, %Error{code: :invalid_method_provenance_entry}} =
+               WorkEnvelope.new(attrs)
     end
 
     test "rejects an empty work_id" do

@@ -69,7 +69,7 @@ defmodule Kiln.WorkEnvelope do
 
   @type producer :: %{product: String.t(), version: String.t()}
   @type goal :: %{title: String.t(), success_conditions: [String.t()]}
-  @type method_provenance :: %{id: String.t(), version: String.t()}
+  @type method_provenance :: String.t()
 
   @type capability :: %{
           id: String.t(),
@@ -431,43 +431,31 @@ defmodule Kiln.WorkEnvelope do
     end)
   end
 
-  defp check_method_provenance_entry(%{"id" => id, "version" => version} = entry)
-       when is_binary(id) and is_binary(version) do
+  defp check_method_provenance_entry(entry) when is_binary(entry) do
     cond do
-      byte_size(id) == 0 ->
-        {:halt, empty_identifier_error("method_provenance.id")}
+      byte_size(entry) == 0 ->
+        {:halt, empty_identifier_error("method_provenance")}
 
-      byte_size(id) > @max_identifier_bytes ->
-        {:halt, limit_error("method_provenance.id", @max_identifier_bytes, byte_size(id))}
+      byte_size(entry) > @max_identifier_bytes ->
+        {:halt, limit_error("method_provenance", @max_identifier_bytes, byte_size(entry))}
 
-      has_disallowed_control?(id) ->
-        {:halt, control_byte_error("method_provenance.id")}
-
-      byte_size(version) == 0 ->
-        {:halt, empty_identifier_error("method_provenance.version")}
-
-      byte_size(version) > @max_identifier_bytes ->
-        {:halt,
-         limit_error("method_provenance.version", @max_identifier_bytes, byte_size(version))}
-
-      has_disallowed_control?(version) ->
-        {:halt, control_byte_error("method_provenance.version")}
+      has_disallowed_control?(entry) ->
+        {:halt, control_byte_error("method_provenance")}
 
       true ->
-        # Normalize to a struct-friendly shape.
-        _ = entry
         {:cont, :ok}
     end
   end
 
   defp check_method_provenance_entry(_) do
-    {:error,
-     Error.new(
-       :precondition,
-       :invalid_method_provenance_entry,
-       "each method_provenance entry must be a map with id and version",
-       %{}
-     )}
+    {:halt,
+     {:error,
+      Error.new(
+        :precondition,
+        :invalid_method_provenance_entry,
+        "each method_provenance entry must be a non-empty string",
+        %{}
+      )}}
   end
 
   defp check_project_state(value) when is_map(value) do

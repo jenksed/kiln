@@ -484,7 +484,7 @@ defmodule Kiln.Supervision do
   end
 
   defp build_envelope(
-         _store,
+         store,
          envelope,
          run_id,
          observation,
@@ -509,34 +509,33 @@ defmodule Kiln.Supervision do
       end) ++
         observation_completion_effects(observation_completion, uuid_v7_fun)
 
-    evidence =
-      Enum.map(evidence_ids, fn evidence_id ->
-        %{"kind" => "evidence", "evidence_id" => evidence_id}
-      end)
-
     unknowns = build_unknowns(envelope, observation_completion, now)
 
-    RunResultEnvelope.build(
-      work_id: envelope.work_id,
-      run_id: run_id,
-      status: status,
-      input_state: %{
-        base_commit: envelope.project_state.base_commit,
-        workspace_state_digest: envelope.project_state.workspace_state_digest
-      },
-      final_state: %{
-        commit: observation.current_commit,
-        workspace_state_digest: envelope.project_state.workspace_state_digest
-      },
-      authority_decisions: decisions,
-      effects: effects,
-      evidence: evidence,
-      proof_obligations: proof_obligations,
-      unknowns: unknowns
-    )
-    |> case do
-      {:ok, built} -> {:ok, built}
-      {:error, _} = err -> err
+    case fetch_evidence_records(store, evidence_ids) do
+      {:ok, evidence_by_id} ->
+        evidence = evidence_summaries(evidence_ids, evidence_by_id)
+
+        RunResultEnvelope.build(
+          work_id: envelope.work_id,
+          run_id: run_id,
+          status: status,
+          input_state: %{
+            base_commit: envelope.project_state.base_commit,
+            workspace_state_digest: envelope.project_state.workspace_state_digest
+          },
+          final_state: %{
+            commit: observation.current_commit,
+            workspace_state_digest: envelope.project_state.workspace_state_digest
+          },
+          authority_decisions: decisions,
+          effects: effects,
+          evidence: evidence,
+          proof_obligations: proof_obligations,
+          unknowns: unknowns
+        )
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -960,8 +959,7 @@ defmodule Kiln.Supervision do
         authority: authority,
         effects:
           Enum.map(artifact_ids, fn id -> %{"kind" => "artifact", "artifact_id" => id} end),
-        evidence:
-          Enum.map(evidence_ids, fn id -> %{"kind" => "evidence", "evidence_id" => id} end),
+        evidence: evidence_summaries(evidence_ids, evidence_by_id),
         proof_obligations: proof_obligations,
         unknowns: unknowns,
         recovery: nil,
@@ -1076,6 +1074,18 @@ defmodule Kiln.Supervision do
         {:error, reason} ->
           {:halt, {:error, reason}}
       end
+    end)
+  end
+
+  defp evidence_summaries(evidence_ids, evidence_by_id) do
+    Enum.map(evidence_ids, fn evidence_id ->
+      evidence = Map.fetch!(evidence_by_id, evidence_id)
+
+      %{
+        "id" => evidence.evidence_id,
+        "kind" => "evidence",
+        "state_digest" => evidence.subject_state_digest
+      }
     end)
   end
 

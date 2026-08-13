@@ -115,6 +115,7 @@ defmodule Kiln.SupervisionRestartRegressionTest do
       assert reconstructed.input_state == first.input_state
       assert reconstructed.final_state == first.final_state
       assert reconstructed.authority == first.authority
+      assert reconstructed.evidence == first.evidence
       assert reconstructed.proof_obligations.unknown == false
     end
   end
@@ -270,7 +271,7 @@ defmodule Kiln.SupervisionRestartRegressionTest do
       "capability" => %{
         "id" => "repository-recon",
         "contract_version" => "0.1.0",
-        "method_provenance" => [%{"id" => "loadout/recon", "version" => "0.0.1"}]
+        "method_provenance" => ["loadout/recon@0.0.1", "digest:sha256:test"]
       },
       "project_state" => %{
         "repository" => repo_root,

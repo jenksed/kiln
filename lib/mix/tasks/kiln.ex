@@ -59,6 +59,12 @@ defmodule Mix.Tasks.Kiln do
     Mix.shell().info(String.trim_trailing(output, "\n"))
   end
 
+  defp render(
+         %Kiln.CLI.Request{command: :supervise, format: :json},
+         %Kiln.CLI.Result{status: :ok} = result
+       ),
+       do: Kiln.CLI.JsonRenderer.render_supervision(result)
+
   defp render(%Kiln.CLI.Request{format: :json}, %Kiln.CLI.Result{} = result),
     do: Kiln.CLI.JsonRenderer.render(result)
 

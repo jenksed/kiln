@@ -75,6 +75,38 @@ defmodule Kiln.CLI.JsonRendererTest do
     assert output =~ "pass", "ok document failed: #{output}"
   end
 
+  test "successful supervision renders the canonical Run Result Envelope for Loadout" do
+    envelope = %{
+      "schema" => "engineering-system/run-result-envelope/v0",
+      "work_id" => "work-1",
+      "run_id" => "run-1",
+      "status" => "completed",
+      "authority" => %{requested: ["git.read"], granted: ["git.read"], denied: []}
+    }
+
+    result =
+      Result.ok("supervise",
+        data: %{work_id: "work-1", run_id: "run-1", envelope: envelope}
+      )
+
+    rendered = result |> JsonRenderer.render_supervision() |> JSON.decode!()
+
+    assert rendered == %{
+             "schema" => "engineering-system/run-result-envelope/v0",
+             "work_id" => "work-1",
+             "run_id" => "run-1",
+             "status" => "completed",
+             "authority" => %{
+               "requested" => ["git.read"],
+               "granted" => ["git.read"],
+               "denied" => []
+             }
+           }
+
+    refute Map.has_key?(rendered, "data")
+    refute Map.has_key?(rendered, "kind")
+  end
+
   test "renderer output of every accepted status conforms to the schema" do
     for status <- Result.statuses() do
       result = build_for_status(status)

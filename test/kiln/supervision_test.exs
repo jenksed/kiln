@@ -63,7 +63,7 @@ defmodule Kiln.SupervisionTest do
       "capability" => %{
         "id" => "repository-recon",
         "contract_version" => "0.1.0",
-        "method_provenance" => [%{"id" => "loadout/recon", "version" => "0.0.1"}]
+        "method_provenance" => ["loadout/recon@0.0.1", "digest:sha256:test"]
       },
       "project_state" => %{
         "repository" => repo_root,
@@ -114,7 +114,16 @@ defmodule Kiln.SupervisionTest do
       assert result.proof_obligations.satisfied == ["repo-state-observed"]
       assert result.acceptance_readiness.ready == false
       refute Enum.empty?(result.effects)
-      refute Enum.empty?(result.evidence)
+
+      assert [
+               %{
+                 "id" => evidence_id,
+                 "kind" => "evidence",
+                 "state_digest" => "sha256:" <> _digest
+               }
+             ] = result.evidence
+
+      assert is_binary(evidence_id)
     end
 
     test "replay: same work_id + same request returns the same Run identity",

@@ -21,6 +21,20 @@ defmodule Kiln.CLI.JsonRenderer do
     |> Kernel.<>("\n")
   end
 
+  @doc "Render a successful Wave 3 supervision as its canonical Run Result Envelope."
+  @spec render_supervision(Result.t()) :: String.t()
+  def render_supervision(%Result{
+        command: "supervise",
+        status: :ok,
+        data: %{envelope: envelope}
+      })
+      when is_map(envelope) do
+    envelope
+    |> json_value()
+    |> JSON.encode!()
+    |> Kernel.<>("\n")
+  end
+
   defp build(%Result{} = result) do
     %{
       kind: Result.kind(),

@@ -80,19 +80,9 @@ defmodule Kiln.CLI do
     case Runtime.open(request.kiln_home, mode) do
       {:ok, :ready} ->
         try do
-          case fun.(request, nil) do
-            {:ok, %Result{} = result} ->
-              {result, result.exit_code}
-
-            {:error, %Result{} = result} ->
-              {result, result.exit_code}
-
-            {:error, %Error{} = error} ->
-              error_result_tuple(request, error)
-
-            {:ok, %Result{} = result, _session} ->
-              {result, result.exit_code}
-          end
+          request
+          |> then(&fun.(&1, nil))
+          |> normalize_dispatch_result(request)
         after
           Runtime.stop()
         end
@@ -113,7 +103,9 @@ defmodule Kiln.CLI do
     case Runtime.open(request.kiln_home, :write) do
       {:ok, :ready} ->
         try do
-          dispatch_supervise(request)
+          request
+          |> dispatch_supervise()
+          |> normalize_dispatch_result(request)
         after
           Runtime.stop()
         end
@@ -125,6 +117,22 @@ defmodule Kiln.CLI do
         blocked_result(request, state)
     end
   end
+
+  defp normalize_dispatch_result({:ok, %Result{} = result}, _request),
+    do: {result, result.exit_code}
+
+  defp normalize_dispatch_result({:error, %Result{} = result}, _request),
+    do: {result, result.exit_code}
+
+  defp normalize_dispatch_result({:error, %Error{} = error}, request),
+    do: error_result_tuple(request, error)
+
+  defp normalize_dispatch_result({:ok, %Result{} = result, _session}, _request),
+    do: {result, result.exit_code}
+
+  defp normalize_dispatch_result({%Result{} = result, exit_code}, _request)
+       when is_integer(exit_code),
+       do: {result, exit_code}
 
   defp absent_result(%Request{command: command}) do
     {result, exit_code} =

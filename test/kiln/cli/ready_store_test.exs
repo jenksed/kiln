@@ -61,7 +61,7 @@ defmodule Kiln.CLI.ReadyStoreTest do
       "capability" => %{
         "id" => "repository-recon",
         "contract_version" => "0.1.0",
-        "method_provenance" => [%{"id" => "loadout/recon", "version" => "0.0.1"}]
+        "method_provenance" => ["loadout/recon@0.0.1", "digest:sha256:test"]
       },
       "project_state" => %{
         "repository" => repo,
@@ -111,7 +111,7 @@ defmodule Kiln.CLI.ReadyStoreTest do
     # The full CLI dispatch must not return an error result from the
     # FunctionClauseError that blocked merged main before the fix.
     case CLI.run(request) do
-      {:ok, %Kiln.CLI.Result{status: :ok, data: data}} ->
+      {%Kiln.CLI.Result{status: :ok, data: data}, 0} ->
         assert data.work_id == work_id
         assert data.envelope["work_id"] == work_id
         # Nested maps retain atom keys (built from struct fields)
@@ -119,8 +119,10 @@ defmodule Kiln.CLI.ReadyStoreTest do
         assert data.envelope["authority"][:denied] == []
         assert data.envelope["input_state"][:base_commit] == data.envelope["final_state"][:commit]
 
-      {:ok, %Kiln.CLI.Result{} = result} ->
-        flunk("CLI supervise failed: status=#{result.status} errors=#{inspect(result.errors)}")
+      {%Kiln.CLI.Result{} = result, exit_code} ->
+        flunk(
+          "CLI supervise failed: exit=#{exit_code} status=#{result.status} errors=#{inspect(result.errors)}"
+        )
     end
   end
 
