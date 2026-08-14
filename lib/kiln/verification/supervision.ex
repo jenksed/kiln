@@ -401,7 +401,9 @@ defmodule Kiln.Verification.Supervision do
         acceptance_readiness: %{
           ready: false,
           reasons: ["required verification authority was denied"]
-        }
+        },
+        verification_epistemic_state: :blocked,
+        aggregate_evaluation: %{value: :not_ready, reason: :none}
       )
     end
   end

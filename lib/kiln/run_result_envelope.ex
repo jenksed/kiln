@@ -37,6 +37,19 @@ defmodule Kiln.RunResultEnvelope do
 
   @statuses ~w(completed blocked cancelled failed unknown)a
 
+  # Epistemic state derived from adjudication; not a Run lifecycle status.
+  # Pass / fail reflect the strongest evidence; blocked / unknown reflect
+  # authority or environment blocks; stale / contradicted reflect evidence
+  # freshness or consistency conflicts; waived reflects an explicit owner
+  # decision that bypasses the verification gate.
+  @verification_epistemic_states ~w(pass fail blocked unknown stale contradicted waived)a
+
+  # Aggregate evaluation summarizes readiness against the verifier's verdict.
+  # The value tracks the acceptance-readiness projection; the reason
+  # explains why a value other than :ready was assigned.
+  @aggregate_evaluation_values ~w(ready not_ready unknown)a
+  @aggregate_evaluation_reasons ~w(stale_evidence contradiction none)a
+
   @enforce_keys [
     :schema,
     :work_id,
@@ -50,7 +63,9 @@ defmodule Kiln.RunResultEnvelope do
     :proof_obligations,
     :unknowns,
     :recovery,
-    :acceptance_readiness
+    :acceptance_readiness,
+    :verification_epistemic_state,
+    :aggregate_evaluation
   ]
 
   defstruct [
@@ -66,10 +81,20 @@ defmodule Kiln.RunResultEnvelope do
     :proof_obligations,
     :unknowns,
     :recovery,
-    :acceptance_readiness
+    :acceptance_readiness,
+    :verification_epistemic_state,
+    :aggregate_evaluation
   ]
 
   @type status :: :completed | :blocked | :cancelled | :failed | :unknown
+
+  @type verification_epistemic_state ::
+          :pass | :fail | :blocked | :unknown | :stale | :contradicted | :waived
+
+  @type aggregate_evaluation :: %{
+          value: :ready | :not_ready | :unknown,
+          reason: :stale_evidence | :contradiction | :none
+        }
 
   @type t :: %__MODULE__{
           schema: String.t(),
@@ -88,7 +113,9 @@ defmodule Kiln.RunResultEnvelope do
           },
           unknowns: [String.t()],
           recovery: nil | map(),
-          acceptance_readiness: %{ready: boolean(), reasons: [String.t()]}
+          acceptance_readiness: %{ready: boolean(), reasons: [String.t()]},
+          verification_epistemic_state: verification_epistemic_state(),
+          aggregate_evaluation: aggregate_evaluation()
         }
 
   @doc "The accepted Run Result Envelope v0 schema identifier."
@@ -136,9 +163,18 @@ defmodule Kiln.RunResultEnvelope do
         reasons: ["Wave 3 v0 envelopes never claim user acceptance"]
       })
 
+    verification_epistemic_state =
+      Keyword.get(opts, :verification_epistemic_state, :unknown)
+
+    aggregate_evaluation =
+      Keyword.get(opts, :aggregate_evaluation, %{value: :not_ready, reason: :none})
+
     with :ok <- check_status(status),
          :ok <- check_input_state(input_state),
          :ok <- check_final_state(final_state),
+         :ok <- check_verification_epistemic_state(verification_epistemic_state),
+         {:ok, aggregate_evaluation} <-
+           normalize_aggregate_evaluation(aggregate_evaluation),
          {:ok, authority} <- build_authority(authority_decisions),
          {:ok, proof_obligations} <- normalize_proof_obligations(proof_obligations) do
       envelope = %__MODULE__{
@@ -154,7 +190,9 @@ defmodule Kiln.RunResultEnvelope do
         proof_obligations: proof_obligations,
         unknowns: unknowns,
         recovery: nil,
-        acceptance_readiness: acceptance_readiness
+        acceptance_readiness: acceptance_readiness,
+        verification_epistemic_state: verification_epistemic_state,
+        aggregate_evaluation: aggregate_evaluation
       }
 
       {:ok, envelope}
@@ -186,6 +224,11 @@ defmodule Kiln.RunResultEnvelope do
       "acceptance_readiness" => %{
         "ready" => envelope.acceptance_readiness.ready,
         "reasons" => envelope.acceptance_readiness.reasons
+      },
+      "verification_epistemic_state" => Atom.to_string(envelope.verification_epistemic_state),
+      "aggregate_evaluation" => %{
+        "value" => Atom.to_string(envelope.aggregate_evaluation.value),
+        "reason" => Atom.to_string(envelope.aggregate_evaluation.reason)
       }
     }
   end
@@ -196,6 +239,25 @@ defmodule Kiln.RunResultEnvelope do
 
   defp check_status(_) do
     {:error, {:invalid_status, Enum.map(@statuses, &Atom.to_string/1)}}
+  end
+
+  defp check_verification_epistemic_state(state)
+       when state in @verification_epistemic_states,
+       do: :ok
+
+  defp check_verification_epistemic_state(_) do
+    {:error,
+     {:invalid_verification_epistemic_state,
+      Enum.map(@verification_epistemic_states, &Atom.to_string/1)}}
+  end
+
+  defp normalize_aggregate_evaluation(%{value: value, reason: reason})
+       when value in @aggregate_evaluation_values and reason in @aggregate_evaluation_reasons do
+    {:ok, %{value: value, reason: reason}}
+  end
+
+  defp normalize_aggregate_evaluation(_) do
+    {:error, :invalid_aggregate_evaluation}
   end
 
   defp check_input_state(%{base_commit: bc, workspace_state_digest: wd})

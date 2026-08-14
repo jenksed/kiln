@@ -956,6 +956,18 @@ defmodule Kiln.Supervision do
       acceptance_readiness =
         derive_acceptance_readiness(verification_change, status, authority, proof_obligations)
 
+      verification_epistemic_state =
+        derive_verification_epistemic_state(status, authority, proof_obligations)
+
+      aggregate_evaluation =
+        derive_aggregate_evaluation(
+          verification_change,
+          status,
+          authority,
+          proof_obligations,
+          evidence_by_id
+        )
+
       envelope = %RunResultEnvelope{
         schema: RunResultEnvelope.schema(),
         work_id: work_id,
@@ -970,7 +982,9 @@ defmodule Kiln.Supervision do
         proof_obligations: proof_obligations,
         unknowns: unknowns,
         recovery: nil,
-        acceptance_readiness: acceptance_readiness
+        acceptance_readiness: acceptance_readiness,
+        verification_epistemic_state: verification_epistemic_state,
+        aggregate_evaluation: aggregate_evaluation
       }
 
       {:ok, envelope}
@@ -1252,6 +1266,54 @@ defmodule Kiln.Supervision do
       end
 
     %{ready: ready, reasons: reasons}
+  end
+
+  # Derive the verification epistemic state from the Run lifecycle, the
+  # authority verdict, and the proof-obligation partition. This value is
+  # the integration slice's minimum legitimate representation of the
+  # verifier's verdict; the existing Run `status` and the structured
+  # `acceptance_readiness` contract remain authoritative for their
+  # respective concerns.
+  defp derive_verification_epistemic_state(status, authority, proof_obligations) do
+    cond do
+      status == :blocked or authority.denied != [] -> :blocked
+      proof_obligations.invalidated != [] -> :fail
+      status == :completed and proof_obligations.satisfied != [] -> :pass
+      true -> :unknown
+    end
+  end
+
+  # Derive the aggregate readiness projection. The value mirrors the
+  # `acceptance_readiness.ready` flag. The reason surfaces the specific
+  # cause when readiness is suppressed: `stale_evidence` when the
+  # evidence freshness rule failed, `contradiction` when a completed Run
+  # carries invalidated obligations, otherwise `none`.
+  defp derive_aggregate_evaluation(
+         _change,
+         status,
+         authority,
+         proof_obligations,
+         evidence_by_id
+       ) do
+    cond do
+      has_stale_evidence?(evidence_by_id) ->
+        %{value: :not_ready, reason: :stale_evidence}
+
+      status == :completed and proof_obligations.invalidated != [] ->
+        %{value: :not_ready, reason: :contradiction}
+
+      status == :completed and proof_obligations.satisfied != [] and authority.denied == [] ->
+        %{value: :ready, reason: :none}
+
+      true ->
+        %{value: :not_ready, reason: :none}
+    end
+  end
+
+  defp has_stale_evidence?(evidence_by_id) do
+    Enum.any?(evidence_by_id, fn {_id, evidence} ->
+      evidence.completeness in [:missing, :unknown] or evidence.result == :unknown
+    end)
   end
 
   # ============================================================================

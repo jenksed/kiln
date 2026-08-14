@@ -150,7 +150,7 @@ defmodule Kiln.Verification.SupervisionTest do
         "id" => "verify-change/proof-obligation",
         "version" => "1.0.0",
         "implementation_digest" =>
-          "sha256:13a137f778a479f01d1b90ab9640dceed893a824a06fc386f4df925164a4c0e9",
+          "sha256:7528513f16863330a8f69a4c554fec0e37a22de7994465e99962532bc6ea1690",
         "selection_result_digest" => "sha256:" <> String.duplicate("b", 64),
         "arsenal_commit" => String.duplicate("c", 40),
         "status" => "evaluated-winner"
