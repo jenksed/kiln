@@ -5,7 +5,12 @@ defmodule Kiln.Verification.Change do
 
   @schema "loadout/verification-change/v0"
   @method "verify-change/proof-obligation"
-  @implementation_digest "sha256:ec329afbb1e6337b8af2edd2a9614a1a034c91e1f3946d757ba1f9970dde5b84"
+  # Trust transition authorized by the project owner:
+  #   old: sha256:ec329afbb1e6337b8af2edd2a9614a1a034c91e1f3946d757ba1f9970dde5b84 (Wave 6 verify-change/proof-obligation@1.0.0)
+  #   new: sha256:13a137f778a479f01d1b90ab9640dceed893a824a06fc386f4df925164a4c0e9 (Wave 6R combined, 10 general heuristics)
+  #   evidence: Arsenal evaluation on 22 dev trials shows false_READY=0; Loadout port: 159/159 tests pass
+  #   authorization: Owner decision recorded in engineering-system/program/wave-6/FINAL-VERDICT.md
+  @implementation_digest "sha256:13a137f778a479f01d1b90ab9640dceed893a824a06fc386f4df925164a4c0e9"
 
   @spec validate(map(), Kiln.WorkEnvelope.t()) :: {:ok, map()} | {:error, term()}
   def validate(attrs, envelope) when is_map(attrs) do
